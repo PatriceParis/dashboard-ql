@@ -123,14 +123,14 @@ export function CompaniesShell({ companies, demographics, campaigns, campaignGro
         <div className="px-5 py-4 flex flex-wrap items-center gap-x-5 gap-y-3">
           <div className="text-base font-semibold tnum">
             {formatNumber(base.length)} {plural(base.length, "company", "companies")}
-            <span className="text-sm font-normal text-muted-foreground ml-2">reached by the ads, {windowLabel}</span>
+            <span className="text-sm font-normal text-muted-foreground ml-2">reached by the account's ads, {windowLabel}</span>
           </div>
           <div className="ml-auto flex flex-wrap items-center gap-x-5 gap-y-3">
             <Segmented value={window} onChange={(w) => setWindow(w)} options={COMPANY_WINDOWS.map((w) => ({ key: w.key, label: w.label }))} />
             <label className="text-sm text-muted-foreground inline-flex items-center gap-2">
               Campaign
               <select id="companies-campaign" value={campaignFilter} onChange={(e) => setCampaignFilter(e.target.value)} className="bg-card border border-border rounded-md px-2 py-1.5 text-sm text-foreground max-w-[320px]">
-                <option value="all">All campaigns</option>
+                <option value="all">All campaigns (whole ad account)</option>
                 {campaignOptions.map((g) => (
                   <optgroup key={g.gid} label={g.name}>
                     {g.items.length > 1 && <option value={`group:${g.gid}`}>Whole campaign "{g.name}"</option>}
@@ -189,12 +189,12 @@ export function CompaniesShell({ companies, demographics, campaigns, campaignGro
           {rows.length === 0 ? <EmptyState title="No companies" text="Change the segment, the period or the campaign." /> : <CompanyTable rows={rows} organizations={orgs} />}
         </div>
         <p className="px-5 pb-4 text-xs text-muted-foreground">
-          Source: paid impressions by company (LinkedIn Marketing API). LinkedIn's Companies hub also counts organic Page activity and website visits, and hides companies below a privacy threshold, so its totals differ.
+          Source: paid impressions by company across the whole ad account (LinkedIn Marketing API); the campaign filter covers the ABX campaigns. LinkedIn's Companies hub also counts organic Page activity and website visits, and hides companies below a privacy threshold, so its totals differ.
         </p>
       </Card>
 
       <Card>
-        <CardHeader title="Profile of the audience reached" subtitle={`Share of impressions over ${demoWindow === "30d" ? "30" : "90"} days, all campaigns`} tip="Breakdown provided by LinkedIn for the members who saw the ads, based on the members' own profile data." />
+        <CardHeader title="Profile of the audience reached" subtitle={`Share of impressions over ${demoWindow === "30d" ? "30" : "90"} days, whole ad account`} tip="Breakdown provided by LinkedIn for the members who saw the ads, based on the members' own profile data." />
         <div className="px-5 pb-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
           <div>
             <h3 className="text-sm font-medium mb-3">Job functions</h3>

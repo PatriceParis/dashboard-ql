@@ -262,6 +262,21 @@ export class LinkedInAPIClient {
     return data.elements || [];
   }
 
+  // Même pivot au niveau du compte entier (toutes campagnes, tous groupes).
+  async getCompanyAnalyticsForAccount(accountId: string | number, start: DateParts, end: DateParts) {
+    const data = await this.getRaw<{ elements: Json[] }>(
+      `/rest/adAnalytics?q=analytics&pivot=MEMBER_COMPANY&timeGranularity=ALL&dateRange=${dateRangeParam(start, end)}&accounts=${listParam([`urn:li:sponsoredAccount:${accountId}`])}&fields=${LinkedInAPIClient.COMPANY_FIELDS}`
+    );
+    return data.elements || [];
+  }
+
+  async getDemographicAnalyticsForAccount(pivot: string, accountId: string | number, start: DateParts, end: DateParts) {
+    const data = await this.getRaw<{ elements: Json[] }>(
+      `/rest/adAnalytics?q=analytics&pivot=${pivot}&timeGranularity=ALL&dateRange=${dateRangeParam(start, end)}&accounts=${listParam([`urn:li:sponsoredAccount:${accountId}`])}&fields=pivotValues,impressions,clicks,totalEngagements,oneClickLeads`
+    );
+    return data.elements || [];
+  }
+
   // Ventilation entreprise × campagne. Le finder `statistics` accepte deux pivots ;
   // s'il refuse, on retombe sur un appel MEMBER_COMPANY par campagne.
   private statisticsFinderRefused = false;

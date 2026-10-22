@@ -521,24 +521,23 @@ async function main() {
     const ids = new Set(dailyAnalytics.filter((d) => d.date >= s && d.date <= e && d.impressions > 0).map((d) => d.campaignId));
     return campaigns.filter((c) => ids.has(c.id)).map((c) => `urn:li:sponsoredCampaign:${c.id}`);
   };
+  // Vue « toutes campagnes » = compte publicitaire entier (demande de Patrice du 22/10),
+  // la ventilation par campagne reste limitée au périmètre « ABX ».
   for (const w of windowDefs) {
     const agg = new Map<string, CompanyMetrics>();
-    const urns = activeCampaignsIn(w.start, w.end);
-    for (const [i, batch] of chunk(urns, 20).entries()) {
-      try {
-        const rows = await client.getCompanyAnalytics(batch, toDateParts(w.start), toDateParts(w.end));
-        for (const row of rows) {
-          const id = stripUrn(pivotOf(row));
-          if (!pivotOf(row).includes("organization") || !id) continue;
-          orgIds.add(id);
-          agg.set(id, mergeCompany(agg.get(id), id, row));
-        }
-      } catch (err) {
-        fail(`Entreprises ${w.key} lot ${i + 1}`, err);
+    try {
+      const rows = await client.getCompanyAnalyticsForAccount(accountId, toDateParts(w.start), toDateParts(w.end));
+      for (const row of rows) {
+        const id = stripUrn(pivotOf(row));
+        if (!pivotOf(row).includes("organization") || !id) continue;
+        orgIds.add(id);
+        agg.set(id, mergeCompany(agg.get(id), id, row));
       }
+    } catch (err) {
+      fail(`Entreprises ${w.key}`, err);
     }
     companies.windows[w.key] = Array.from(agg.values()).sort((a, b) => b.impressions - a.impressions);
-    console.log(`  ${w.key} : ${companies.windows[w.key].length} entreprises (${urns.length} campagnes actives)`);
+    console.log(`  ${w.key} : ${companies.windows[w.key].length} entreprises (compte entier)`);
   }
   for (const key of ["30d", "90d"] as CampaignWindow[]) {
     const w = windowDefs.find((d) => d.key === key)!;
@@ -575,26 +574,22 @@ async function main() {
   ];
   for (const key of ["30d", "90d"] as CampaignWindow[]) {
     const w = windowDefs.find((d) => d.key === key)!;
-    const urns = activeCampaignsIn(w.start, w.end);
     for (const p of pivots) {
       const agg = new Map<string, DemographicRow>();
-      for (const batch of chunk(urns, 20)) {
-        try {
-          const rows = await client.getDemographicAnalytics(p.pivot, batch, toDateParts(w.start), toDateParts(w.end));
-          for (const row of rows) {
-            const v = pivotOf(row);
-            if (!v) continue;
-            const cur = agg.get(v) || { key: v, label: p.label(v), impressions: 0, clicks: 0, engagements: 0, leads: 0 };
-            cur.impressions += num(row.impressions);
-            cur.clicks += num(row.clicks);
-            cur.engagements += num(row.totalEngagements);
-            cur.leads += num(row.oneClickLeads);
-            agg.set(v, cur);
-          }
-        } catch (err) {
-          fail(`Audience ${p.key} ${key}`, err);
-          break;
+      try {
+        const rows = await client.getDemographicAnalyticsForAccount(p.pivot, accountId, toDateParts(w.start), toDateParts(w.end));
+        for (const row of rows) {
+          const v = pivotOf(row);
+          if (!v) continue;
+          const cur = agg.get(v) || { key: v, label: p.label(v), impressions: 0, clicks: 0, engagements: 0, leads: 0 };
+          cur.impressions += num(row.impressions);
+          cur.clicks += num(row.clicks);
+          cur.engagements += num(row.totalEngagements);
+          cur.leads += num(row.oneClickLeads);
+          agg.set(v, cur);
         }
+      } catch (err) {
+        fail(`Audience ${p.key} ${key}`, err);
       }
       demographics.windows[key][p.key] = Array.from(agg.values()).sort((a, b) => b.impressions - a.impressions);
     }
