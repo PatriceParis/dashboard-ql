@@ -132,6 +132,8 @@ export function CompaniesShell({ companies, demographics, campaigns, campaignGro
       .sort((a, b) => b.highly - a.highly || b.engaged - a.engaged || b.reached - a.reached);
   }, [companies.byCampaign, focusWindow, campaigns]);
   const top = focus[0];
+  // Autres ad sets classés par sociétés touchées (indicateur unique, plus parlant pour le client).
+  const others = focus.slice(1).sort((a, b) => b.reached - a.reached).slice(0, 5);
 
   return (
     <div className="space-y-5">
@@ -155,31 +157,26 @@ export function CompaniesShell({ companies, demographics, campaigns, campaignGro
                   setCampaignFilter(top.id);
                   setSegment("highly");
                 }}
-                className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
+                className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-md bg-card text-primary border border-primary/30 hover:border-primary"
               >
                 Show these companies <ArrowRight className="w-4 h-4" />
               </button>
             </div>
-            {focus.length > 1 && (
+            {others.length > 0 && (
               <div className="border-t lg:border-t-0 lg:border-l border-primary/15 bg-card/60 px-5 py-5">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Next ad sets</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Other ad sets</p>
                 <table className="w-full text-sm mt-2">
                   <thead>
                     <tr className="text-xs text-muted-foreground">
                       <th className="text-left font-normal pb-1">Ad set</th>
-                      <th className="text-right font-normal pb-1">High</th>
-                      <th className="text-right font-normal pb-1 pl-3">Engaged</th>
+                      <th className="text-right font-normal pb-1">Companies reached</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {focus.slice(1, 5).map((r, i) => (
+                    {others.map((r) => (
                       <tr key={r.id} className="border-t border-border/60">
-                        <td className="py-1.5 pr-2 max-w-[190px] truncate">
-                          <span className="text-muted-foreground tnum mr-1.5">{i + 2}</span>
-                          {r.campaign!.name}
-                        </td>
-                        <td className="py-1.5 text-right tnum font-medium">{r.highly}</td>
-                        <td className="py-1.5 text-right tnum pl-3 text-muted-foreground">{r.engaged}</td>
+                        <td className="py-1.5 pr-2 max-w-[210px] truncate">{r.campaign!.name}</td>
+                        <td className="py-1.5 text-right tnum font-medium">{formatNumber(r.reached)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -298,9 +295,9 @@ export function CompaniesShell({ companies, demographics, campaigns, campaignGro
 
 function FocusStat({ value, label, strong = false }: { value: number; label: string; strong?: boolean }) {
   return (
-    <div className={cn("rounded-md px-3 py-2", strong ? "bg-primary text-primary-foreground" : "bg-card border border-border")}>
-      <span className="block text-xl font-semibold tnum leading-none">{formatNumber(value)}</span>
-      <span className={cn("block text-xs mt-1", strong ? "text-primary-foreground/80" : "text-muted-foreground")}>{label}</span>
+    <div className="rounded-md px-3 py-2 bg-card border border-border">
+      <span className={cn("block text-xl font-semibold tnum leading-none", strong ? "text-primary" : "text-foreground")}>{formatNumber(value)}</span>
+      <span className="block text-xs mt-1 text-muted-foreground">{label}</span>
     </div>
   );
 }
