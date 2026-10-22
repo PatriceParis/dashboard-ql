@@ -62,6 +62,24 @@ export const MEDIA_LABELS: Record<string, string> = {
   unknown: "Ad",
 };
 
+// Secteurs cibles Quarkslab encodés dans le nom des ad sets (« ... - SEC5 »).
+export const SECTOR_LABELS: Record<string, string> = {
+  SEC1: "Defence & aerospace",
+  SEC2: "Finance & payments",
+  SEC3: "Hardware & semiconductors",
+  SEC4: "Telecom & cloud",
+  SEC5: "Software & SaaS",
+  SEC6: "Automotive & transport",
+  SEC7: "Industry & IoT",
+};
+
+export function sectorOf(adSetName?: string): { code: string; label: string } | null {
+  const m = adSetName?.match(/\bSEC(\d)\b/i);
+  if (!m) return null;
+  const code = `SEC${m[1]}`;
+  return { code, label: SECTOR_LABELS[code] || code };
+}
+
 export const COMPANY_WINDOWS = [
   { key: "7d", label: "Last 7 days" },
   { key: "30d", label: "Last 30 days" },

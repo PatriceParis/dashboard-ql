@@ -58,6 +58,16 @@ export function CreativesShell({ data }: { data: DashboardData }) {
     });
   }, [base, group, sort, campaignById]);
 
+  // Une même publication peut tourner dans plusieurs ad sets (un par secteur cible).
+  const repeatedPosts = useMemo(() => {
+    const count = new Map<string, number>();
+    for (const c of shown) {
+      const key = c.reference || c.adText.slice(0, 120);
+      if (key) count.set(key, (count.get(key) || 0) + 1);
+    }
+    return Array.from(count.values()).filter((n) => n > 1).length;
+  }, [shown]);
+
   const links = useMemo(() => shown.map((c) => c.postUrl).filter((u): u is string => !!u), [shown]);
   const tlaLinks = useMemo(() => shown.filter((c) => c.authorName || c.authorPersonId).map((c) => c.postUrl).filter((u): u is string => !!u), [shown]);
 
@@ -105,6 +115,12 @@ export function CreativesShell({ data }: { data: DashboardData }) {
           </div>
         )}
       </Card>
+
+      {repeatedPosts > 0 && (
+        <div className="rounded-lg border border-primary/20 bg-primary-soft px-4 py-3 text-sm text-foreground">
+          The same post is often shown several times below: it runs in several ad sets, one per target sector (Defence, Finance, Hardware, Telecom, Software, Automotive, Industry). Each card shows the ad set at the top and its own results for that audience.
+        </div>
+      )}
 
       {shown.length === 0 ? (
         <Card>

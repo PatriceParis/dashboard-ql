@@ -1,6 +1,6 @@
 import { ExternalLink, FileText, Globe, Play } from "lucide-react";
 import type { AccountOrg, Creative } from "@/lib/types";
-import { MEDIA_LABELS } from "@/lib/constants";
+import { MEDIA_LABELS, sectorOf } from "@/lib/constants";
 import { formatNumber, formatPercent, initials } from "@/lib/utils";
 import { Badge } from "@/components/ui/primitives";
 
@@ -11,9 +11,23 @@ export function CreativeCard({ creative, accountOrg, campaignName }: { creative:
   const hasVideo = creative.mediaType === "video" && !!creative.videoUrl;
   const hasImage = !!creative.localMediaPath;
   const ctr = creative.impressions ? ((creative.clicks || 0) / creative.impressions) * 100 : null;
+  const sector = sectorOf(campaignName);
 
   return (
     <article className="border border-border rounded-lg bg-card overflow-hidden flex flex-col">
+      {campaignName && (
+        <div className="px-3 py-2 bg-navy text-white flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-[10px] uppercase tracking-wider text-white/60 leading-none">Ad set</p>
+            <p className="text-sm font-semibold truncate mt-0.5">{campaignName}</p>
+          </div>
+          {sector && (
+            <span className="shrink-0 text-xs font-medium bg-white/15 rounded-full px-2.5 py-1 whitespace-nowrap" title={`Audience of the ad set: ${sector.label}`}>
+              {sector.label}
+            </span>
+          )}
+        </div>
+      )}
       <div className="p-3 pb-2 flex items-start gap-2.5">
         {isTla ? (
           <div className="w-11 h-11 rounded-full shrink-0 bg-navy text-white flex items-center justify-center text-sm font-semibold">{initials(creative.authorName || "TL")}</div>
@@ -82,7 +96,6 @@ export function CreativeCard({ creative, accountOrg, campaignName }: { creative:
           </a>
         )}
       </div>
-      {campaignName && <p className="px-3 pb-2.5 text-[11px] text-muted-foreground truncate">Ad set: {campaignName}</p>}
     </article>
   );
 }
