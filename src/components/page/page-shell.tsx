@@ -13,8 +13,6 @@ function sumBetween<T extends { date: string }>(rows: T[], start: string, end: s
   return rows.filter((r) => r.date >= start && r.date <= end).reduce((s, r) => s + pick(r), 0);
 }
 
-const ADMIN_NOTE = "Not available: LinkedIn only provides this statistic to a Page administrator. Authorise the application with such an account (npm run auth) to display it.";
-
 export function PageShell({ stats, accountOrg, dataEnd }: { stats: PageStats; accountOrg?: AccountOrg; dataEnd: string }) {
   const [postSort, setPostSort] = useState<"date" | "impressions" | "engagement">("date");
 
@@ -78,20 +76,22 @@ export function PageShell({ stats, accountOrg, dataEnd }: { stats: PageStats; ac
         </p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+      <div className={cn("grid grid-cols-2 md:grid-cols-3 gap-3", followerStatsAvailable ? "xl:grid-cols-6" : "xl:grid-cols-5")}>
         <Stat label="Followers" value={formatNumber(followersTotal)} tip="Total number of Page followers at the time of the update." />
-        <Stat label="New followers" value={followerStatsAvailable ? `${k.cur.gains >= 0 ? "+" : ""}${formatNumber(k.cur.gains)}` : "–"} delta={followerStatsAvailable ? deltaPercent(k.cur.gains, k.prev.gains) : null} tip={followerStatsAvailable ? "Followers gained over 30 days, organic and paid." : ADMIN_NOTE} />
+        {followerStatsAvailable && (
+          <Stat label="New followers" value={`${k.cur.gains >= 0 ? "+" : ""}${formatNumber(k.cur.gains)}`} delta={deltaPercent(k.cur.gains, k.prev.gains)} tip="Followers gained over 30 days, organic and paid." />
+        )}
         <Stat label="Unique visitors" value={formatNumber(k.cur.unique)} delta={deltaPercent(k.cur.unique, k.prev.unique)} tip="Distinct members who viewed the Page over 30 days." />
         <Stat label="Post impressions" value={formatNumber(k.cur.impr)} delta={deltaPercent(k.cur.impr, k.prev.impr)} tip="Views of the Page's posts (organic and sponsored) over 30 days." />
         <Stat label="Engagement rate" value={formatPercent(k.rate)} delta={deltaPercent(k.rate, k.prevRate)} tip="Clicks, reactions, comments and shares divided by impressions, over 30 days." />
         <Stat label="Posts" value={formatNumber(k.cur.posts)} delta={deltaPercent(k.cur.posts, k.prev.posts)} tip="Page posts published over 30 days, among the 30 most recent." />
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
-        <Card>
-          <CardHeader title="New followers per day" subtitle="Last 90 days" />
-          <div className="px-4 pb-4">
-            {followerStatsAvailable ? (
+      <div className={cn("grid grid-cols-1 gap-5", followerStatsAvailable ? "xl:grid-cols-3" : "xl:grid-cols-2")}>
+        {followerStatsAvailable && (
+          <Card>
+            <CardHeader title="New followers per day" subtitle="Last 90 days" />
+            <div className="px-4 pb-4">
               <TimeSeriesChart
                 type="bar"
                 stacked
@@ -101,11 +101,9 @@ export function PageShell({ stats, accountOrg, dataEnd }: { stats: PageStats; ac
                   { key: "paid", label: "From ads", color: CHART_COLORS.paid },
                 ]}
               />
-            ) : (
-              <EmptyState title="Not available with the authorised account" text="LinkedIn only provides follower trends to a Page administrator. Authorise the application with such an account to display them." />
-            )}
-          </div>
-        </Card>
+            </div>
+          </Card>
+        )}
         <Card>
           <CardHeader title="Page views" subtitle="Last 90 days" />
           <div className="px-4 pb-4">
@@ -153,7 +151,7 @@ export function PageShell({ stats, accountOrg, dataEnd }: { stats: PageStats; ac
       <Card>
         <CardHeader
           title="Latest posts"
-          subtitle={postStatsAvailable ? "Cumulative statistics since publication" : "Per-post statistics require a Page administrator; the list remains available"}
+          subtitle={postStatsAvailable ? "Cumulative statistics since publication" : "The 30 most recent posts"}
           action={
             <label className="text-sm text-muted-foreground inline-flex items-center gap-2">
               Sort by
