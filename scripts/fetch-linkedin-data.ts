@@ -46,6 +46,7 @@ import type {
   ReachWindowData,
 } from "../src/lib/types";
 import { functionLabel, industryLabel, seniorityLabel, staffCountLabel } from "../src/lib/linkedin-taxonomy";
+import { buildSummary } from "./summary";
 
 const ROOT = process.cwd();
 const DATA_DIR = path.join(ROOT, "data");
@@ -751,6 +752,16 @@ async function main() {
     pageStats.errors.push("page LinkedIn non identifiée (LINKEDIN_ORG_ID)");
   }
   writeJSON("page-stats.json", pageStats);
+
+  // 9b. Résumé de synthèse (Claude si ANTHROPIC_API_KEY, sinon règles)
+  console.log("\n9b. Résumé de synthèse");
+  try {
+    const summary = await buildSummary({ campaigns, dailyAnalytics, reach, companies, pageStats, currency, endDate: isoDate(end) });
+    console.log(`  ${summary.method} : ${summary.text.slice(0, 140)}…`);
+    writeJSON("summary.json", summary);
+  } catch (err) {
+    fail("Résumé", err);
+  }
 
   // 10. meta
   writeMeta(accountId, accountName, currency, { start: isoDate(dailyStart), end: isoDate(end) }, client.version);

@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import type { AccountOrg, CompaniesData, DashboardData, DemographicsData, Meta, PageStats, ReachData } from "./types";
+import type { AccountOrg, CompaniesData, DashboardData, DemographicsData, Meta, PageStats, ReachData, Summary } from "./types";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 
@@ -14,6 +14,10 @@ function readJSON<T>(filename: string, fallback: T): T {
 
 export function loadMeta(): Meta {
   return readJSON<Meta>("meta.json", { lastUpdated: "", currency: "EUR", dataPeriod: { start: "", end: "" }, accountId: "", accountName: "", errors: [] });
+}
+
+export function loadSummary(): Summary | undefined {
+  return readJSON<Summary | null>("summary.json", null) || undefined;
 }
 
 export function loadAccountOrg(): AccountOrg | undefined {

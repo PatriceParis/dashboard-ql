@@ -209,6 +209,14 @@ export interface PageStats {
   errors: string[];
 }
 
+export interface Summary {
+  text: string;
+  method: "claude" | "rules";
+  generatedAt: string;
+  window: string;
+  topAdSet: { id: string; name: string; highlyEngaged: number; companiesReached: number } | null;
+}
+
 export interface Meta {
   lastUpdated: string;
   apiVersion?: string; // version LinkedIn utilisée (AAAAMM), retirée douze mois après sa sortie

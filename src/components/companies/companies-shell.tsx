@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Download, Search } from "lucide-react";
 import type { Campaign, CampaignGroup, CampaignWindow, CompaniesData, CompanyMetrics, CompanyWindow, DemographicsData } from "@/lib/types";
 import { COMPANY_WINDOWS } from "@/lib/constants";
-import { SEGMENTS, matchesSegment, type SegmentContext, type SegmentKey, companyLevel } from "@/lib/segments";
+import { SEGMENTS, matchesSegment, type SegmentContext, type SegmentKey, companyLevel, isHighlyEngaged } from "@/lib/segments";
 import { countryLabel, orgTypeLabel, staffCountLabel, STAFF_COUNT_ORDER } from "@/lib/linkedin-taxonomy";
 import { BarList, Card, CardHeader, EmptyState, InfoTip, Segmented } from "@/components/ui/primitives";
 import { CompanyTable } from "./company-table";
@@ -117,8 +117,51 @@ export function CompaniesShell({ companies, demographics, campaigns, campaignGro
   const demo = demographics.windows[demoWindow];
   const sizeRows = [...(demo?.companySize || [])].sort((a, b) => STAFF_COUNT_ORDER.indexOf(a.key.split(":").pop() || "") - STAFF_COUNT_ORDER.indexOf(b.key.split(":").pop() || ""));
 
+  // Focus : ad set ABX ayant généré le plus de sociétés fortement engagées sur la fenêtre.
+  const focusWindow: CampaignWindow = effectiveWindow === "7d" ? "30d" : (effectiveWindow as CampaignWindow);
+  const focus = useMemo(() => {
+    const bc = companies.byCampaign[focusWindow] || {};
+    const nameOf = new Map(campaigns.map((c) => [c.id, c]));
+    return Object.entries(bc)
+      .map(([id, list]) => ({ id, campaign: nameOf.get(id), highly: list.filter(isHighlyEngaged).length, engaged: list.filter((c) => c.engagements >= 1).length, reached: list.length }))
+      .filter((r) => r.campaign)
+      .sort((a, b) => b.highly - a.highly || b.engaged - a.engaged || b.reached - a.reached);
+  }, [companies.byCampaign, focusWindow, campaigns]);
+  const top = focus[0];
+
   return (
     <div className="space-y-5">
+      {top && (
+        <Card className="border-primary/30">
+          <div className="px-5 py-4 flex flex-wrap items-start gap-x-6 gap-y-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium uppercase tracking-wide text-primary">Focus · ABX ad set with the most highly engaged companies, {COMPANY_WINDOWS.find((w) => w.key === focusWindow)?.label.toLowerCase()}</p>
+              <p className="text-lg font-semibold mt-1 truncate">{top.campaign!.name}</p>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {top.campaign!.campaignGroupName ? `${top.campaign!.campaignGroupName} · ` : ""}
+                <span className="text-foreground font-medium tnum">{formatNumber(top.highly)}</span> highly engaged {plural(top.highly, "company", "companies")}, {formatNumber(top.engaged)} engaged, {formatNumber(top.reached)} reached
+                {top.highly === 0 && " (no ad set produced a highly engaged company on this window)"}
+              </p>
+              <button onClick={() => { setCampaignFilter(top.id); setSegment("highly"); }} className="mt-2 text-sm font-medium text-primary hover:underline">
+                Show these companies
+              </button>
+            </div>
+            {focus.length > 1 && (
+              <ol className="text-sm text-muted-foreground space-y-1 min-w-[260px]">
+                {focus.slice(1, 4).map((r, i) => (
+                  <li key={r.id} className="flex items-baseline justify-between gap-3">
+                    <span className="truncate">
+                      <span className="tnum mr-1.5">{i + 2}.</span>
+                      {r.campaign!.name}
+                    </span>
+                    <span className="tnum shrink-0">{r.highly} high · {r.engaged} engaged</span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+        </Card>
+      )}
       <Card>
         <div className="px-5 py-4 flex flex-wrap items-center gap-x-5 gap-y-3">
           <div className="text-base font-semibold tnum">
