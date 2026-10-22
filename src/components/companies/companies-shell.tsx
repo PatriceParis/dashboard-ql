@@ -203,7 +203,8 @@ export function CompaniesShell({ companies, demographics, campaigns, campaignGro
         {campaignFiltered && <p className="px-5 pb-3 text-xs text-muted-foreground">Figures for the selection only. LinkedIn hides very low volumes in the per-campaign breakdown, so a campaign total can be lower than the all-campaigns view.</p>}
       </Card>
 
-      <p className="text-xs text-muted-foreground -mb-2">
+      <div className="flex flex-col gap-2">
+      <p className="text-xs text-muted-foreground">
         Segments count every company reached by the account&apos;s ads over the {cardsWindowLabel}, whatever the campaign filter.
       </p>
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2">
@@ -226,6 +227,7 @@ export function CompaniesShell({ companies, demographics, campaigns, campaignGro
             </button>
           );
         })}
+      </div>
       </div>
 
       <Card>
