@@ -9,7 +9,7 @@ const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm-sans", display
 
 export const metadata: Metadata = {
   title: SITE_TITLE,
-  description: "Suivi des campagnes LinkedIn Ads et de la page LinkedIn de Quarkslab",
+  description: "LinkedIn Ads campaigns and company Page reporting for Quarkslab",
   robots: { index: false, follow: false },
 };
 
@@ -17,7 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const meta = loadMeta();
   const accountOrg = loadAccountOrg();
   return (
-    <html lang="fr" className={dmSans.variable}>
+    <html lang="en-GB" className={dmSans.variable}>
       <body className="min-h-screen">
         <AppFrame meta={meta} accountOrg={accountOrg}>
           {children}

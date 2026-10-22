@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import type { AccountOrg, CompaniesData, DashboardData, DemographicsData, Meta, PageStats } from "./types";
+import type { AccountOrg, CompaniesData, DashboardData, DemographicsData, Meta, PageStats, ReachData } from "./types";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 
@@ -29,6 +29,7 @@ export function loadDashboardData(): DashboardData {
     analytics: readJSON("analytics.json", []),
     dailyAnalytics: readJSON("daily-analytics.json", []),
     creatives: readJSON("creatives.json", []),
+    reach: readJSON<ReachData>("reach.json", { windows: {} as ReachData["windows"] }),
   };
 }
 

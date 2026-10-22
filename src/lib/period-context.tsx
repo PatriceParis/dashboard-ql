@@ -29,7 +29,8 @@ export function PeriodProvider({ dataPeriod, children }: { dataPeriod: { start: 
     return { start, end };
   }, [dataPeriod.start, dataPeriod.end]);
 
-  const [preset, setPresetState] = useState<PeriodPreset>("30");
+  // 90 jours par défaut : les campagnes se diffusent par vagues, une fenêtre plus courte est souvent vide.
+  const [preset, setPresetState] = useState<PeriodPreset>("90");
   const [custom, setCustomState] = useState<{ start: string; end: string }>({ start: addDaysIso(bounds.end, -29), end: bounds.end });
 
   const value = useMemo<PeriodValue>(() => {
@@ -63,6 +64,6 @@ export function PeriodProvider({ dataPeriod, children }: { dataPeriod: { start: 
 
 export function usePeriod(): PeriodValue {
   const ctx = useContext(PeriodContext);
-  if (!ctx) throw new Error("usePeriod doit être utilisé sous PeriodProvider");
+  if (!ctx) throw new Error("usePeriod must be used inside PeriodProvider");
   return ctx;
 }

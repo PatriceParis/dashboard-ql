@@ -10,10 +10,10 @@ import { formatCompact, formatCurrency, formatDate, formatDateShort, formatNumbe
 type Secondary = "clicks" | "engagements" | "leads" | "spend";
 
 const SECONDARY: Array<{ key: Secondary; label: string; color: string }> = [
-  { key: "clicks", label: "Clics", color: CHART_COLORS.clicks },
-  { key: "engagements", label: "Interactions", color: CHART_COLORS.engagements },
+  { key: "clicks", label: "Clicks", color: CHART_COLORS.clicks },
+  { key: "engagements", label: "Engagements", color: CHART_COLORS.engagements },
   { key: "leads", label: "Leads", color: CHART_COLORS.leads },
-  { key: "spend", label: "Dépenses", color: CHART_COLORS.spend },
+  { key: "spend", label: "Spend", color: CHART_COLORS.spend },
 ];
 
 export function PerformanceChart({ rows, currency }: { rows: DailyAnalytics[]; currency: string }) {
@@ -26,7 +26,7 @@ export function PerformanceChart({ rows, currency }: { rows: DailyAnalytics[]; c
   const fmtSecondary = (v: number) => (secondary === "spend" ? formatCurrency(v, currency) : formatNumber(v));
 
   if (data.length === 0) {
-    return <p className="text-sm text-muted-foreground py-10 text-center">Aucune diffusion sur la période.</p>;
+    return <p className="text-sm text-muted-foreground py-10 text-center">No ad delivery over this period.</p>;
   }
 
   return (
@@ -36,7 +36,7 @@ export function PerformanceChart({ rows, currency }: { rows: DailyAnalytics[]; c
           <span className="w-2.5 h-2.5 rounded-sm" style={{ background: CHART_COLORS.impressions }} />
           Impressions
         </span>
-        <span className="text-muted-foreground">Comparer avec :</span>
+        <span className="text-muted-foreground">Compare with:</span>
         <div className="inline-flex gap-1">
           {SECONDARY.map((s) => (
             <button
@@ -66,7 +66,7 @@ export function PerformanceChart({ rows, currency }: { rows: DailyAnalytics[]; c
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e5ef" vertical={false} />
               <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#5f6783" }} tickLine={false} axisLine={false} minTickGap={24} />
               <YAxis yAxisId="left" tick={{ fontSize: 11, fill: "#5f6783" }} tickLine={false} axisLine={false} tickFormatter={(v) => formatCompact(v)} width={48} />
-              <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: "#5f6783" }} tickLine={false} axisLine={false} tickFormatter={(v) => (secondary === "spend" ? formatCompact(v) : formatCompact(v))} width={44} />
+              <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: "#5f6783" }} tickLine={false} axisLine={false} tickFormatter={(v) => formatCompact(v)} width={44} />
               <Tooltip
                 content={({ active, payload }) => {
                   if (!active || !payload?.length) return null;
@@ -74,8 +74,8 @@ export function PerformanceChart({ rows, currency }: { rows: DailyAnalytics[]; c
                   return (
                     <div className="bg-card border border-border rounded-md shadow-lg px-3 py-2 text-xs">
                       <p className="font-medium mb-1">{formatDate(p.date)}</p>
-                      <p>Impressions : <span className="tnum font-medium">{formatNumber(p.impressions)}</span></p>
-                      <p>{sec.label} : <span className="tnum font-medium">{fmtSecondary(p[secondary])}</span></p>
+                      <p>Impressions: <span className="tnum font-medium">{formatNumber(p.impressions)}</span></p>
+                      <p>{sec.label}: <span className="tnum font-medium">{fmtSecondary(p[secondary])}</span></p>
                     </div>
                   );
                 }}

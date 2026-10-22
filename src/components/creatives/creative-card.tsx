@@ -20,15 +20,15 @@ export function CreativeCard({ creative, accountOrg, campaignName }: { creative:
         ) : accountOrg?.logoPath ? (
           <img src={accountOrg.logoPath} alt={orgName} className="w-11 h-11 rounded-md shrink-0 object-cover" />
         ) : (
-          <div className="w-11 h-11 rounded-md shrink-0 bg-navy text-white flex items-center justify-center text-sm font-semibold">Q</div>
+          <div className="w-11 h-11 rounded-md shrink-0 border border-border bg-white flex items-center justify-center p-1.5">
+            <img src="/quarkslab-logo.svg" alt={orgName} className="w-full h-auto" />
+          </div>
         )}
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-sm leading-tight truncate">{displayName}</p>
-          <p className="text-xs text-muted-foreground leading-tight">
-            {isTla ? `Thought Leader Ad · sponsorisé par ${orgName}` : `${formatNumber(accountOrg?.followerCount || 0)} abonnés`}
-          </p>
+          <p className="text-xs text-muted-foreground leading-tight">{isTla ? `Thought Leader Ad · sponsored by ${orgName}` : `${formatNumber(accountOrg?.followerCount || 0)} followers`}</p>
           <p className="text-xs text-muted-foreground flex items-center gap-1 leading-tight">
-            Sponsorisé <Globe className="w-3 h-3" />
+            Promoted <Globe className="w-3 h-3" />
           </p>
         </div>
       </div>
@@ -68,23 +68,21 @@ export function CreativeCard({ creative, accountOrg, campaignName }: { creative:
         <Badge className="bg-muted text-muted-foreground">{MEDIA_LABELS[creative.mediaType]}</Badge>
         {ctr !== null && creative.impressions ? (
           <>
-            <Badge className="bg-positive text-white" >
-              {formatPercent(ctr)} de clics
-            </Badge>
+            <Badge className="bg-positive text-white">{formatPercent(ctr)} CTR</Badge>
             <span className="text-muted-foreground tnum">{formatNumber(creative.impressions)} impressions</span>
             {creative.leads ? <span className="text-muted-foreground tnum">· {creative.leads} lead{creative.leads > 1 ? "s" : ""}</span> : null}
-            <span className="text-muted-foreground">· 90 j</span>
+            <span className="text-muted-foreground">· 90 days</span>
           </>
         ) : (
-          <span className="text-muted-foreground">Pas de diffusion sur 90 jours</span>
+          <span className="text-muted-foreground">No delivery in the last 90 days</span>
         )}
         {creative.postUrl && (
           <a href={creative.postUrl} target="_blank" rel="noopener noreferrer" className="ml-auto inline-flex items-center gap-1 text-primary hover:underline">
-            Voir sur LinkedIn <ExternalLink className="w-3 h-3" />
+            View on LinkedIn <ExternalLink className="w-3 h-3" />
           </a>
         )}
       </div>
-      {campaignName && <p className="px-3 pb-2.5 text-[11px] text-muted-foreground truncate">Campagne : {campaignName}</p>}
+      {campaignName && <p className="px-3 pb-2.5 text-[11px] text-muted-foreground truncate">Ad set: {campaignName}</p>}
     </article>
   );
 }

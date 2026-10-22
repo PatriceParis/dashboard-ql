@@ -13,6 +13,8 @@ function sumBetween<T extends { date: string }>(rows: T[], start: string, end: s
   return rows.filter((r) => r.date >= start && r.date <= end).reduce((s, r) => s + pick(r), 0);
 }
 
+const ADMIN_NOTE = "Not available: LinkedIn only provides this statistic to a Page administrator. Authorise the application with such an account (npm run auth) to display it.";
+
 export function PageShell({ stats, accountOrg, dataEnd }: { stats: PageStats; accountOrg?: AccountOrg; dataEnd: string }) {
   const [postSort, setPostSort] = useState<"date" | "impressions" | "engagement">("date");
 
@@ -34,6 +36,8 @@ export function PageShell({ stats, accountOrg, dataEnd }: { stats: PageStats; ac
   }, [stats, start30, end, prevStart, prevEnd]);
 
   const followersTotal = accountOrg?.followerCount || stats.followers.total;
+  const followerStatsAvailable = stats.followers.gains.length > 0 || stats.followers.byFunction.length > 0;
+  const postStatsAvailable = stats.posts.some((p) => p.impressions > 0);
 
   const sortedPosts = useMemo(() => {
     const list = [...stats.posts];
@@ -46,10 +50,7 @@ export function PageShell({ stats, accountOrg, dataEnd }: { stats: PageStats; ac
   if (!stats.available) {
     return (
       <Card>
-        <EmptyState
-          title="Statistiques de la page indisponibles"
-          text="Elles exigent le droit « r_organization_admin » sur l'application LinkedIn et un jeton obtenu par un administrateur de la page Quarkslab. Relancer `npm run auth` avec ce compte, puis `npm run fetch-data`."
-        />
+        <EmptyState title="Page statistics unavailable" text="They require the r_organization_admin permission on the LinkedIn application and a token obtained by a Quarkslab Page administrator. Run `npm run auth` with that account, then `npm run fetch-data`." />
         {stats.errors.length > 0 && (
           <ul className="px-6 pb-6 text-xs text-muted-foreground list-disc ml-5">
             {stats.errors.map((e, i) => (
@@ -65,119 +66,129 @@ export function PageShell({ stats, accountOrg, dataEnd }: { stats: PageStats; ac
     <div className="space-y-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h1 className="text-lg font-semibold">
-          Page LinkedIn {accountOrg?.name || "Quarkslab"}
+          {accountOrg?.name || "Quarkslab"} LinkedIn Page
           {accountOrg?.vanityName && (
             <a href={`https://www.linkedin.com/company/${accountOrg.vanityName}`} target="_blank" rel="noopener noreferrer" className="ml-2 text-sm font-normal text-primary inline-flex items-center gap-1 hover:underline">
-              ouvrir <ExternalLink className="w-3.5 h-3.5" />
+              open <ExternalLink className="w-3.5 h-3.5" />
             </a>
           )}
         </h1>
         <p className="text-sm text-muted-foreground">
-          30 derniers jours ({formatDate(start30)} au {formatDate(end)}), comparés aux 30 jours précédents
+          Last 30 days ({formatDate(start30)} to {formatDate(end)}), compared with the previous 30 days
         </p>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
-        <Stat label="Abonnés" value={formatNumber(followersTotal)} tip="Nombre total d'abonnés de la page à la date de mise à jour." />
-        <Stat label="Nouveaux abonnés" value={`${k.cur.gains >= 0 ? "+" : ""}${formatNumber(k.cur.gains)}`} delta={deltaPercent(k.cur.gains, k.prev.gains)} tip="Abonnés gagnés sur 30 jours, organiques et payants." />
-        <Stat label="Visiteurs uniques" value={formatNumber(k.cur.unique)} delta={deltaPercent(k.cur.unique, k.prev.unique)} tip="Membres distincts ayant consulté la page sur 30 jours." />
-        <Stat label="Impressions des publications" value={formatNumber(k.cur.impr)} delta={deltaPercent(k.cur.impr, k.prev.impr)} tip="Affichages des publications de la page (organiques et sponsorisées) sur 30 jours." />
-        <Stat label="Taux d'interaction" value={formatPercent(k.rate)} delta={deltaPercent(k.rate, k.prevRate)} tip="Clics, réactions, commentaires et partages divisés par les impressions, sur 30 jours." />
-        <Stat label="Publications" value={formatNumber(k.cur.posts)} delta={deltaPercent(k.cur.posts, k.prev.posts)} tip="Publications de la page sur 30 jours, parmi les 30 dernières." />
+        <Stat label="Followers" value={formatNumber(followersTotal)} tip="Total number of Page followers at the time of the update." />
+        <Stat label="New followers" value={followerStatsAvailable ? `${k.cur.gains >= 0 ? "+" : ""}${formatNumber(k.cur.gains)}` : "–"} delta={followerStatsAvailable ? deltaPercent(k.cur.gains, k.prev.gains) : null} tip={followerStatsAvailable ? "Followers gained over 30 days, organic and paid." : ADMIN_NOTE} />
+        <Stat label="Unique visitors" value={formatNumber(k.cur.unique)} delta={deltaPercent(k.cur.unique, k.prev.unique)} tip="Distinct members who viewed the Page over 30 days." />
+        <Stat label="Post impressions" value={formatNumber(k.cur.impr)} delta={deltaPercent(k.cur.impr, k.prev.impr)} tip="Views of the Page's posts (organic and sponsored) over 30 days." />
+        <Stat label="Engagement rate" value={formatPercent(k.rate)} delta={deltaPercent(k.rate, k.prevRate)} tip="Clicks, reactions, comments and shares divided by impressions, over 30 days." />
+        <Stat label="Posts" value={formatNumber(k.cur.posts)} delta={deltaPercent(k.cur.posts, k.prev.posts)} tip="Page posts published over 30 days, among the 30 most recent." />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
         <Card>
-          <CardHeader title="Nouveaux abonnés par jour" subtitle="90 derniers jours" />
+          <CardHeader title="New followers per day" subtitle="Last 90 days" />
           <div className="px-4 pb-4">
-            <TimeSeriesChart
-              type="bar"
-              stacked
-              data={stats.followers.gains}
-              series={[
-                { key: "organic", label: "Organiques", color: CHART_COLORS.organic },
-                { key: "paid", label: "Via publicités", color: CHART_COLORS.paid },
-              ]}
-            />
+            {followerStatsAvailable ? (
+              <TimeSeriesChart
+                type="bar"
+                stacked
+                data={stats.followers.gains}
+                series={[
+                  { key: "organic", label: "Organic", color: CHART_COLORS.organic },
+                  { key: "paid", label: "From ads", color: CHART_COLORS.paid },
+                ]}
+              />
+            ) : (
+              <EmptyState title="Not available with the authorised account" text="LinkedIn only provides follower trends to a Page administrator. Authorise the application with such an account to display them." />
+            )}
           </div>
         </Card>
         <Card>
-          <CardHeader title="Visites de la page" subtitle="90 derniers jours" />
+          <CardHeader title="Page views" subtitle="Last 90 days" />
           <div className="px-4 pb-4">
             <TimeSeriesChart
               data={stats.pageViews.series}
               series={[
-                { key: "views", label: "Pages vues", color: CHART_COLORS.impressions },
-                { key: "unique", label: "Visiteurs uniques", color: CHART_COLORS.unique },
+                { key: "views", label: "Page views", color: CHART_COLORS.impressions },
+                { key: "unique", label: "Unique visitors", color: CHART_COLORS.unique },
               ]}
             />
           </div>
         </Card>
         <Card>
-          <CardHeader title="Impressions des publications" subtitle="90 derniers jours" />
+          <CardHeader title="Post impressions" subtitle="Last 90 days" />
           <div className="px-4 pb-4">
             <TimeSeriesChart data={stats.shares.series} series={[{ key: "impressions", label: "Impressions", color: CHART_COLORS.impressions }]} />
           </div>
         </Card>
       </div>
 
-      <Card>
-        <CardHeader title="Qui suit la page" subtitle="Répartition de l'ensemble des abonnés" tip="Données déclaratives des membres LinkedIn, agrégées par LinkedIn." />
-        <div className="px-5 pb-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-          <div>
-            <h3 className="text-sm font-medium mb-3">Fonctions</h3>
-            <BarList rows={stats.followers.byFunction.map((r) => ({ label: r.label, value: r.organic + r.paid }))} />
+      {followerStatsAvailable && (
+        <Card>
+          <CardHeader title="Who follows the Page" subtitle="Breakdown of all followers" tip="Members' own profile data, aggregated by LinkedIn." />
+          <div className="px-5 pb-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+            <div>
+              <h3 className="text-sm font-medium mb-3">Job functions</h3>
+              <BarList rows={stats.followers.byFunction.map((r) => ({ label: r.label, value: r.organic + r.paid }))} />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium mb-3">Seniority</h3>
+              <BarList rows={stats.followers.bySeniority.map((r) => ({ label: r.label, value: r.organic + r.paid }))} />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium mb-3">Company size</h3>
+              <BarList rows={stats.followers.byStaffCountRange.map((r) => ({ label: r.label, value: r.organic + r.paid }))} max={9} />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium mb-3">Industries</h3>
+              <BarList rows={stats.followers.byIndustry.map((r) => ({ label: r.label, value: r.organic + r.paid }))} />
+            </div>
           </div>
-          <div>
-            <h3 className="text-sm font-medium mb-3">Niveaux hiérarchiques</h3>
-            <BarList rows={stats.followers.bySeniority.map((r) => ({ label: r.label, value: r.organic + r.paid }))} />
-          </div>
-          <div>
-            <h3 className="text-sm font-medium mb-3">Tailles d'entreprise</h3>
-            <BarList rows={stats.followers.byStaffCountRange.map((r) => ({ label: r.label, value: r.organic + r.paid }))} max={9} />
-          </div>
-          <div>
-            <h3 className="text-sm font-medium mb-3">Secteurs</h3>
-            <BarList rows={stats.followers.byIndustry.map((r) => ({ label: r.label, value: r.organic + r.paid }))} />
-          </div>
-        </div>
-      </Card>
+        </Card>
+      )}
 
       <Card>
         <CardHeader
-          title="Dernières publications"
-          subtitle="Statistiques cumulées depuis la publication"
+          title="Latest posts"
+          subtitle={postStatsAvailable ? "Cumulative statistics since publication" : "Per-post statistics require a Page administrator; the list remains available"}
           action={
             <label className="text-sm text-muted-foreground inline-flex items-center gap-2">
-              Trier par
+              Sort by
               <select id="posts-sort" value={postSort} onChange={(e) => setPostSort(e.target.value as typeof postSort)} className="bg-card border border-border rounded-md px-2 py-1.5 text-sm text-foreground">
                 <option value="date">Date</option>
                 <option value="impressions">Impressions</option>
-                <option value="engagement">Taux d'interaction</option>
+                <option value="engagement">Engagement rate</option>
               </select>
             </label>
           }
         />
         <div className="px-2 pb-3 overflow-x-auto">
           {sortedPosts.length === 0 ? (
-            <EmptyState title="Aucune publication récente" />
+            <EmptyState title="No recent posts" />
           ) : (
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
                   <th className="py-2.5 px-3 font-medium whitespace-nowrap">Date</th>
-                  <th className="py-2.5 px-3 font-medium">Publication</th>
-                  <th className="py-2.5 px-3 font-medium text-right">Impressions</th>
-                  <th className="py-2.5 px-3 font-medium text-right">Clics</th>
-                  <th className="py-2.5 px-3 font-medium text-right">Réactions</th>
-                  <th className="py-2.5 px-3 font-medium text-right">Commentaires</th>
-                  <th className="py-2.5 px-3 font-medium text-right">Partages</th>
-                  <th className="py-2.5 px-3 font-medium text-right whitespace-nowrap">Taux d'interaction</th>
+                  <th className="py-2.5 px-3 font-medium">Post</th>
+                  {postStatsAvailable && (
+                    <>
+                      <th className="py-2.5 px-3 font-medium text-right">Impressions</th>
+                      <th className="py-2.5 px-3 font-medium text-right">Clicks</th>
+                      <th className="py-2.5 px-3 font-medium text-right">Reactions</th>
+                      <th className="py-2.5 px-3 font-medium text-right">Comments</th>
+                      <th className="py-2.5 px-3 font-medium text-right">Shares</th>
+                      <th className="py-2.5 px-3 font-medium text-right whitespace-nowrap">Engagement rate</th>
+                    </>
+                  )}
                 </tr>
               </thead>
               <tbody>
                 {sortedPosts.map((p) => (
-                  <PostRow key={p.id} post={p} />
+                  <PostRow key={p.id} post={p} withStats={postStatsAvailable} />
                 ))}
               </tbody>
             </table>
@@ -203,7 +214,7 @@ function Stat({ label, value, delta, tip }: { label: string; value: string; delt
           <span className={cn("inline-flex items-center gap-1 font-medium tnum", good ? "text-positive" : bad ? "text-negative" : "text-muted-foreground")}>
             {good ? <TrendingUp className="w-3.5 h-3.5" /> : bad ? <TrendingDown className="w-3.5 h-3.5" /> : null}
             {delta > 0 ? "+" : ""}
-            {delta.toLocaleString("fr-FR", { maximumFractionDigits: 1 })}&nbsp;%
+            {delta.toLocaleString("en-GB", { maximumFractionDigits: 1 })}%
           </span>
         )}
       </div>
@@ -211,25 +222,32 @@ function Stat({ label, value, delta, tip }: { label: string; value: string; delt
   );
 }
 
-function PostRow({ post }: { post: PagePost }) {
+function PostRow({ post, withStats }: { post: PagePost; withStats: boolean }) {
+  const cell = (
+    <td className="py-2.5 px-3 min-w-[280px] max-w-[520px]">
+      <div className="flex items-start gap-2">
+        <Badge className="bg-muted text-muted-foreground shrink-0 mt-0.5">{MEDIA_LABELS[post.mediaType]}</Badge>
+        <p className="line-clamp-2 text-foreground">{post.text || "(no text)"}</p>
+        <a href={post.url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary shrink-0 mt-0.5" aria-label="Open the post">
+          <ExternalLink className="w-3.5 h-3.5" />
+        </a>
+      </div>
+    </td>
+  );
   return (
     <tr className="border-b border-border/60 hover:bg-muted/40 transition-colors align-top">
       <td className="py-2.5 px-3 whitespace-nowrap text-muted-foreground tnum">{formatDate(post.publishedAt, { day: "2-digit", month: "short", year: "2-digit" })}</td>
-      <td className="py-2.5 px-3 min-w-[280px] max-w-[520px]">
-        <div className="flex items-start gap-2">
-          <Badge className="bg-muted text-muted-foreground shrink-0 mt-0.5">{MEDIA_LABELS[post.mediaType]}</Badge>
-          <p className="line-clamp-2 text-foreground">{post.text || "(sans texte)"}</p>
-          <a href={post.url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary shrink-0 mt-0.5" aria-label="Ouvrir la publication">
-            <ExternalLink className="w-3.5 h-3.5" />
-          </a>
-        </div>
-      </td>
-      <td className="py-2.5 px-3 text-right tnum">{formatNumber(post.impressions)}</td>
-      <td className="py-2.5 px-3 text-right tnum">{post.clicks || "–"}</td>
-      <td className="py-2.5 px-3 text-right tnum">{post.likes || "–"}</td>
-      <td className="py-2.5 px-3 text-right tnum">{post.comments || "–"}</td>
-      <td className="py-2.5 px-3 text-right tnum">{post.shares || "–"}</td>
-      <td className="py-2.5 px-3 text-right tnum">{post.impressions ? formatPercent(post.engagement * 100, 1) : "–"}</td>
+      {cell}
+      {withStats && (
+        <>
+          <td className="py-2.5 px-3 text-right tnum">{formatNumber(post.impressions)}</td>
+          <td className="py-2.5 px-3 text-right tnum">{post.clicks || "–"}</td>
+          <td className="py-2.5 px-3 text-right tnum">{post.likes || "–"}</td>
+          <td className="py-2.5 px-3 text-right tnum">{post.comments || "–"}</td>
+          <td className="py-2.5 px-3 text-right tnum">{post.shares || "–"}</td>
+          <td className="py-2.5 px-3 text-right tnum">{post.impressions ? formatPercent(post.engagement * 100, 1) : "–"}</td>
+        </>
+      )}
     </tr>
   );
 }

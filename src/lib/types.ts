@@ -41,10 +41,27 @@ export interface Metrics {
   videoMid: number;
   videoQ3: number;
   videoCompletions: number;
+  dwellWeighted: number; // temps d'exposition moyen (s) × impressions, pour une moyenne pondérée
 }
 
 export interface CampaignAnalytics extends Metrics {
   campaignId: string;
+}
+
+// Portée (membres uniques) par fenêtre : non additive, lue en granularité ALL.
+export type ReachWindow = "7d" | "30d" | "90d" | "all";
+
+export interface ReachWindowData {
+  start: string;
+  end: string;
+  total: number; // dédoublonné sur toutes les campagnes de la fenêtre
+  byCampaign: Record<string, number>;
+  audienceSize?: number; // taille cumulée des audiences ciblées, si l'API l'expose
+  audienceByCampaign?: Record<string, number>;
+}
+
+export interface ReachData {
+  windows: Record<ReachWindow, ReachWindowData>;
 }
 
 export interface DailyAnalytics extends Metrics {
@@ -109,7 +126,8 @@ export interface OrganizationInfo {
   vanityName?: string;
   website?: string;
   staffCountRange?: string; // SIZE_201_TO_500
-  industry?: string; // urn:li:industry:4
+  industry?: string; // non fourni par l'API pour les tiers, conservé pour compatibilité
+  organizationType?: string; // PUBLIC_COMPANY, PRIVATELY_HELD, GOVERNMENT_AGENCY...
   country?: string; // FR
 }
 
@@ -193,6 +211,7 @@ export interface PageStats {
 
 export interface Meta {
   lastUpdated: string;
+  apiVersion?: string; // version LinkedIn utilisée (AAAAMM), retirée douze mois après sa sortie
   currency: string;
   dataPeriod: { start: string; end: string }; // fenêtre des analytics journalières
   accountId: string;
@@ -208,6 +227,7 @@ export interface DashboardData {
   analytics: CampaignAnalytics[]; // depuis le début du compte
   dailyAnalytics: DailyAnalytics[];
   creatives: Creative[];
+  reach: ReachData;
 }
 
 export interface ComputedKPIs extends Metrics {
@@ -216,4 +236,8 @@ export interface ComputedKPIs extends Metrics {
   cpc: number;
   cpl: number;
   engagementRate: number;
+  dwellTime: number; // secondes, moyenne pondérée par les impressions
+  reach: number | null; // null hors fenêtres standard
+  costPer1kReached: number | null;
+  audiencePenetration: number | null; // % de l'audience ciblée atteinte
 }

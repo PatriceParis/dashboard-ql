@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { ArrowUpDown, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
 import type { CompanyMetrics, OrganizationInfo } from "@/lib/types";
 import { LEVEL_LABELS, companyLevel, engagementRate } from "@/lib/segments";
-import { countryLabel, industryLabel, staffCountLabel } from "@/lib/linkedin-taxonomy";
+import { countryLabel, orgTypeLabel, staffCountLabel } from "@/lib/linkedin-taxonomy";
 import { Badge } from "@/components/ui/primitives";
 import { cn, formatNumber, formatPercent, initials } from "@/lib/utils";
 
@@ -12,9 +12,9 @@ type SortKey = "name" | "impressions" | "clicks" | "engagements" | "leads" | "ra
 const PAGE = 50;
 
 const LEVEL_CLASSES = {
-  fort: "bg-positive-soft text-positive",
-  engage: "bg-primary-soft text-primary",
-  vu: "bg-muted text-muted-foreground",
+  high: "bg-positive-soft text-positive",
+  engaged: "bg-primary-soft text-primary",
+  reached: "bg-muted text-muted-foreground",
 };
 
 export function CompanyTable({ rows, organizations }: { rows: CompanyMetrics[]; organizations: Record<string, OrganizationInfo> }) {
@@ -47,10 +47,10 @@ export function CompanyTable({ rows, organizations }: { rows: CompanyMetrics[]; 
 
   const numericCols: Array<{ key: SortKey; label: string }> = [
     { key: "impressions", label: "Impressions" },
-    { key: "clicks", label: "Clics" },
-    { key: "engagements", label: "Interactions" },
+    { key: "clicks", label: "Clicks" },
+    { key: "engagements", label: "Engagements" },
     { key: "leads", label: "Leads" },
-    { key: "rate", label: "Taux d'interaction" },
+    { key: "rate", label: "Engagement rate" },
   ];
 
   const visible = sorted.slice(0, limit);
@@ -61,18 +61,18 @@ export function CompanyTable({ rows, organizations }: { rows: CompanyMetrics[]; 
         <thead>
           <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
             <th className="py-2.5 px-3 font-medium cursor-pointer hover:text-foreground" onClick={() => handleSort("name")}>
-              Entreprise <SortIcon col="name" />
+              Company <SortIcon col="name" />
             </th>
-            <th className="py-2.5 px-3 font-medium">Secteur</th>
-            <th className="py-2.5 px-3 font-medium whitespace-nowrap">Effectif</th>
-            <th className="py-2.5 px-3 font-medium">Pays</th>
+            <th className="py-2.5 px-3 font-medium whitespace-nowrap">Company size</th>
+            <th className="py-2.5 px-3 font-medium">Type</th>
+            <th className="py-2.5 px-3 font-medium">Country</th>
             {numericCols.map((c) => (
               <th key={c.key} className="py-2.5 px-3 font-medium cursor-pointer hover:text-foreground text-right whitespace-nowrap" onClick={() => handleSort(c.key)}>
                 {c.label}
                 <SortIcon col={c.key} />
               </th>
             ))}
-            <th className="py-2.5 px-3 font-medium">Niveau</th>
+            <th className="py-2.5 px-3 font-medium">Level</th>
           </tr>
         </thead>
         <tbody>
@@ -90,7 +90,7 @@ export function CompanyTable({ rows, organizations }: { rows: CompanyMetrics[]; 
                       <div className="flex items-center gap-1.5">
                         <span className="font-medium truncate max-w-[260px]">{name}</span>
                         {linkedin && (
-                          <a href={linkedin} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary" aria-label={`Page LinkedIn de ${name}`}>
+                          <a href={linkedin} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary" aria-label={`LinkedIn page of ${name}`}>
                             <ExternalLink className="w-3.5 h-3.5" />
                           </a>
                         )}
@@ -99,8 +99,8 @@ export function CompanyTable({ rows, organizations }: { rows: CompanyMetrics[]; 
                     </div>
                   </div>
                 </td>
-                <td className="py-2 px-3 text-muted-foreground max-w-[180px] truncate">{industryLabel(o?.industry)}</td>
-                <td className="py-2 px-3 text-muted-foreground whitespace-nowrap tnum">{staffCountLabel(o?.staffCountRange)}</td>
+                <td className="py-2 px-3 text-muted-foreground whitespace-nowrap tnum">{o?.staffCountRange ? staffCountLabel(o.staffCountRange) : "–"}</td>
+                <td className="py-2 px-3 text-muted-foreground whitespace-nowrap">{orgTypeLabel(o?.organizationType)}</td>
                 <td className="py-2 px-3 text-muted-foreground whitespace-nowrap">{countryLabel(o?.country) || "–"}</td>
                 <td className="py-2 px-3 text-right tnum">{formatNumber(c.impressions)}</td>
                 <td className="py-2 px-3 text-right tnum">{c.clicks ? formatNumber(c.clicks) : "–"}</td>
@@ -118,7 +118,7 @@ export function CompanyTable({ rows, organizations }: { rows: CompanyMetrics[]; 
       {sorted.length > limit && (
         <div className="text-center py-3">
           <button onClick={() => setLimit(limit + PAGE)} className="text-sm font-medium text-primary hover:underline">
-            Afficher {Math.min(PAGE, sorted.length - limit)} entreprises de plus ({formatNumber(sorted.length - limit)} restantes)
+            Show {Math.min(PAGE, sorted.length - limit)} more companies ({formatNumber(sorted.length - limit)} remaining)
           </button>
         </div>
       )}

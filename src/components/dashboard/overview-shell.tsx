@@ -3,9 +3,10 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { ArrowRight, Building2, Megaphone, Users } from "lucide-react";
-import type { Creative, DashboardData } from "@/lib/types";
+import type { CompanyMetrics, CompanyWindow, Creative, DashboardData } from "@/lib/types";
 import { usePeriod } from "@/lib/period-context";
-import { aggregateByCampaign, computeKPIs, filterDaily, previousRange } from "@/lib/kpi";
+import { aggregateByCampaign, computeKPIs, filterDaily, previousRange, reachWindowForPreset } from "@/lib/kpi";
+import { isHighlyEngaged } from "@/lib/segments";
 import { KPIGrid } from "./kpi-grid";
 import { PerformanceChart } from "./performance-chart";
 import { CampaignTable } from "./campaign-table";
@@ -13,27 +14,38 @@ import { Card, CardHeader } from "@/components/ui/primitives";
 import { formatNumber, formatPercent, cn } from "@/lib/utils";
 
 interface Summary {
-  companies30: number;
-  highlyEngaged30: number;
+  companyWindows: Record<CompanyWindow, CompanyMetrics[]>;
   followers: number;
   followerGains30: number;
   pageAvailable: boolean;
 }
 
 export function OverviewShell({ data, summary }: { data: DashboardData; summary: Summary }) {
-  const { start, end } = usePeriod();
+  const { start, end, preset } = usePeriod();
   const currency = data.meta.currency || "EUR";
+  const reachWindow = reachWindowForPreset(preset);
 
   const { kpis, previousKpis, periodRows, byCampaign } = useMemo(() => {
     const rows = filterDaily(data.dailyAnalytics, start, end);
     const prev = previousRange(start, end);
     const prevRows = filterDaily(data.dailyAnalytics, prev.start, prev.end);
-    return { kpis: computeKPIs(rows), previousKpis: computeKPIs(prevRows), periodRows: rows, byCampaign: aggregateByCampaign(rows) };
-  }, [data.dailyAnalytics, start, end]);
+    return {
+      kpis: computeKPIs(rows, data.reach, reachWindow),
+      previousKpis: computeKPIs(prevRows),
+      periodRows: rows,
+      byCampaign: aggregateByCampaign(rows),
+    };
+  }, [data.dailyAnalytics, data.reach, start, end, reachWindow]);
 
   const activeCampaigns = useMemo(() => Array.from(byCampaign.values()).filter((m) => m.impressions > 0).length, [byCampaign]);
+  const reachByCampaign = reachWindow && data.reach.windows?.[reachWindow] ? data.reach.windows[reachWindow].byCampaign : null;
 
-  // Publicités les plus performantes sur 90 jours (statistiques par créative), 1 000 impressions minimum.
+  // Companies card follows the selected period (7, 30 or 90-day company windows).
+  const companyWindow: CompanyWindow = preset === "7" ? "7d" : preset === "30" ? "30d" : "90d";
+  const companies = summary.companyWindows[companyWindow] || [];
+  const companyCaption = companyWindow === "7d" ? "last 7 days" : companyWindow === "30d" ? "last 30 days" : "last 90 days";
+
+  // Best-performing ads over 90 days (creative-level statistics), 1,000 impressions minimum.
   const topCreatives = useMemo(() => {
     const eligible = data.creatives.filter((c) => (c.impressions || 0) >= 1000);
     return eligible.sort((a, b) => (b.clicks || 0) / (b.impressions || 1) - (a.clicks || 0) / (a.impressions || 1)).slice(0, 3);
@@ -45,25 +57,15 @@ export function OverviewShell({ data, summary }: { data: DashboardData; summary:
     <div className="space-y-5">
       {noData && (
         <div className="bg-warning-soft text-warning border border-warning/20 rounded-lg px-4 py-3 text-sm">
-          Les données LinkedIn n'ont pas encore été récupérées. Lancer <code className="font-mono">npm run fetch-data</code> ou attendre le prochain déploiement.
+          LinkedIn data has not been retrieved yet. Run <code className="font-mono">npm run fetch-data</code> or wait for the next deployment.
         </div>
       )}
-      {data.meta.errors?.length > 0 && !noData && (
-        <details className="bg-muted rounded-lg px-4 py-2 text-xs text-muted-foreground">
-          <summary className="cursor-pointer">{data.meta.errors.length} avertissement(s) lors de la dernière récupération</summary>
-          <ul className="list-disc ml-5 mt-1 space-y-0.5">
-            {data.meta.errors.map((e, i) => (
-              <li key={i}>{e}</li>
-            ))}
-          </ul>
-        </details>
-      )}
 
-      <KPIGrid kpis={kpis} previous={previousKpis} currency={currency} />
+      <KPIGrid kpis={kpis} previous={previousKpis} currency={currency} reachAvailable={reachWindow !== null && kpis.reach !== null} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <Card className="lg:col-span-2">
-          <CardHeader title="Diffusion jour par jour" subtitle={`${activeCampaigns} ${activeCampaigns > 1 ? "campagnes diffusées" : "campagne diffusée"} sur la période`} />
+          <CardHeader title="Daily delivery" subtitle={`${activeCampaigns} ad ${activeCampaigns === 1 ? "set" : "sets"} delivered over the period`} />
           <div className="px-5 pb-5">
             <PerformanceChart rows={periodRows} currency={currency} />
           </div>
@@ -72,37 +74,37 @@ export function OverviewShell({ data, summary }: { data: DashboardData; summary:
           <SummaryCard
             href="/entreprises"
             icon={<Building2 className="w-4 h-4" />}
-            title="Entreprises touchées"
-            caption="30 derniers jours"
-            value={formatNumber(summary.companies30)}
-            detail={`${formatNumber(summary.highlyEngaged30)} fortement engagées`}
+            title="Companies reached"
+            caption={companyCaption}
+            value={formatNumber(companies.length)}
+            detail={`${formatNumber(companies.filter(isHighlyEngaged).length)} highly engaged`}
           />
           <SummaryCard
             href="/page-linkedin"
             icon={<Users className="w-4 h-4" />}
-            title="Abonnés de la page"
-            caption={summary.pageAvailable ? "30 derniers jours" : "statistiques de page indisponibles"}
+            title="Page followers"
+            caption={summary.pageAvailable ? "last 30 days" : "page statistics unavailable"}
             value={formatNumber(summary.followers)}
-            detail={summary.pageAvailable ? `${summary.followerGains30 >= 0 ? "+" : ""}${formatNumber(summary.followerGains30)} nouveaux abonnés` : "voir la page"}
+            detail={summary.pageAvailable && summary.followerGains30 > 0 ? `+${formatNumber(summary.followerGains30)} new followers` : "see the Page"}
           />
         </div>
       </div>
 
       <Card>
-        <CardHeader title="Campagnes" subtitle="Regroupées par groupe de campagnes, sur la période sélectionnée" />
+        <CardHeader title="Campaigns" subtitle="Ad sets grouped by campaign, over the selected period. Members reached are shown for the standard periods." />
         <div className="px-2 pb-3">
-          <CampaignTable campaigns={data.campaigns} metricsByCampaign={byCampaign} currency={currency} />
+          <CampaignTable campaigns={data.campaigns} metricsByCampaign={byCampaign} reachByCampaign={reachByCampaign} currency={currency} />
         </div>
       </Card>
 
       {topCreatives.length > 0 && (
         <Card>
           <CardHeader
-            title="Publicités les plus cliquées"
-            subtitle="Taux de clic sur les 90 derniers jours, 1 000 impressions minimum"
+            title="Most clicked ads"
+            subtitle="Click-through rate over the last 90 days, 1,000 impressions minimum"
             action={
               <Link href="/publicites" className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">
-                Toutes les publicités <ArrowRight className="w-4 h-4" />
+                All ads <ArrowRight className="w-4 h-4" />
               </Link>
             }
           />
@@ -135,22 +137,18 @@ function SummaryCard({ href, icon, title, caption, value, detail }: { href: stri
 }
 
 function TopCreative({ creative }: { creative: Creative }) {
-  const ctr = (creative.clicks || 0) / (creative.impressions || 1) * 100;
+  const ctr = ((creative.clicks || 0) / (creative.impressions || 1)) * 100;
   return (
     <li className="flex gap-3 rounded-md border border-border p-3">
       <div className={cn("w-16 h-16 rounded-md shrink-0 bg-muted overflow-hidden flex items-center justify-center")}>
-        {creative.localMediaPath ? (
-          <img src={creative.localMediaPath} alt="" className="w-full h-full object-cover" />
-        ) : (
-          <Megaphone className="w-5 h-5 text-muted-foreground" />
-        )}
+        {creative.localMediaPath ? <img src={creative.localMediaPath} alt="" className="w-full h-full object-cover" /> : <Megaphone className="w-5 h-5 text-muted-foreground" />}
       </div>
       <div className="min-w-0 text-sm">
         <p className="font-medium truncate">{creative.authorName || creative.headline || creative.name}</p>
-        <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{creative.adText || creative.headline || "Sans texte"}</p>
+        <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{creative.adText || creative.headline || "No text"}</p>
         <p className="text-xs mt-1 tnum">
           <span className="font-semibold text-positive">{formatPercent(ctr)}</span>
-          <span className="text-muted-foreground"> de clics · {formatNumber(creative.impressions || 0)} impressions</span>
+          <span className="text-muted-foreground"> CTR · {formatNumber(creative.impressions || 0)} impressions</span>
         </p>
       </div>
     </li>

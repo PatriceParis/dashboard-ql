@@ -14,7 +14,7 @@ export function TimeSeriesChart({ data, series, type = "area", height = 240, sta
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const rows = data.map((d) => ({ ...(d as Record<string, number | string>), label: formatDateShort(String(d.date)) }));
-  if (rows.length === 0) return <p className="text-sm text-muted-foreground py-8 text-center">Aucune donnée sur la période.</p>;
+  if (rows.length === 0) return <p className="text-sm text-muted-foreground py-8 text-center">No data over this period.</p>;
 
   const tooltip = (
     <Tooltip
@@ -27,7 +27,7 @@ export function TimeSeriesChart({ data, series, type = "area", height = 240, sta
             {series.map((s) => (
               <p key={s.key}>
                 <span className="inline-block w-2 h-2 rounded-sm mr-1.5" style={{ background: s.color }} />
-                {s.label} : <span className="tnum font-medium">{formatNumber(Number(p[s.key] || 0))}</span>
+                {s.label}: <span className="tnum font-medium">{formatNumber(Number(p[s.key] || 0))}</span>
               </p>
             ))}
           </div>

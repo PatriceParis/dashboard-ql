@@ -41,6 +41,9 @@ import type {
   PageStats,
   ShareTotals,
   Breakdown,
+  ReachData,
+  ReachWindow,
+  ReachWindowData,
 } from "../src/lib/types";
 import { functionLabel, industryLabel, seniorityLabel, staffCountLabel } from "../src/lib/linkedin-taxonomy";
 
@@ -54,6 +57,13 @@ const TLA_AUTHORS_FILE = path.join(ROOT, "tla-authors.json");
 
 const DAILY_DAYS = 180;
 const ANALYTICS_SINCE: DateParts = { year: 2024, month: 1, day: 1 };
+// Compte publicitaire Quarkslab, verrouillé : le jeton peut voir d'autres comptes
+// (autres clients), on ne lit jamais autre chose que celui-ci.
+const QUARKSLAB_ACCOUNT_ID = "504032658";
+// Périmètre de la mission : seuls les groupes de campagnes (« campagnes » dans
+// Campaign Manager) dont le nom contient ce mot sont lus, ainsi que les campagnes
+// (« ensembles de publicités ») qui le portent dans leur propre nom.
+const CAMPAIGN_NAME_FILTER = (process.env.CAMPAIGN_NAME_FILTER || "ABX").toLowerCase();
 const errors: string[] = [];
 
 type Json = any;
@@ -109,6 +119,7 @@ function emptyMetrics(): Metrics {
   return {
     impressions: 0, clicks: 0, spend: 0, leads: 0, formOpens: 0, landingPageClicks: 0, engagements: 0,
     likes: 0, comments: 0, shares: 0, follows: 0, videoViews: 0, videoQ1: 0, videoMid: 0, videoQ3: 0, videoCompletions: 0,
+    dwellWeighted: 0,
   };
 }
 
@@ -130,6 +141,7 @@ function metricsFromRow(row: Json): Metrics {
     videoMid: num(row.videoMidpointCompletions),
     videoQ3: num(row.videoThirdQuartileCompletions),
     videoCompletions: num(row.videoCompletions),
+    dwellWeighted: num(row.averageDwellTime) * num(row.impressions),
   };
 }
 
@@ -180,6 +192,7 @@ function writeFallbackIfMissing() {
     ["analytics.json", []],
     ["daily-analytics.json", []],
     ["creatives.json", []],
+    ["reach.json", { windows: {} }],
     ["companies.json", { windows: { "7d": [], "30d": [], "90d": [], "31-60": [] }, byCampaign: { "30d": {}, "90d": {} }, organizations: {} }],
     ["demographics.json", { windows: { "30d": emptyDemographics(), "90d": emptyDemographics() } }],
     ["page-stats.json", emptyPageStats()],
@@ -239,18 +252,18 @@ async function main() {
 
   // 1. Compte publicitaire
   console.log("\n1. Compte publicitaire");
-  let accountId = (process.env.LINKEDIN_AD_ACCOUNT_ID || "").replace(/\D/g, "");
+  const envAccountId = (process.env.LINKEDIN_AD_ACCOUNT_ID || "").replace(/\D/g, "");
+  if (envAccountId && envAccountId !== QUARKSLAB_ACCOUNT_ID) {
+    console.warn(`  ! LINKEDIN_AD_ACCOUNT_ID=${envAccountId} ignoré : ce projet est verrouillé sur le compte Quarkslab ${QUARKSLAB_ACCOUNT_ID}`);
+  }
+  const accountId = QUARKSLAB_ACCOUNT_ID;
   let accountName = "";
   let currency = "EUR";
   let orgId = (process.env.LINKEDIN_ORG_ID || "").replace(/\D/g, "");
   try {
-    if (!accountId) {
-      const accounts = await client.getAdAccounts();
-      console.log(`  comptes accessibles : ${accounts.map((a) => `${a.id} (${a.name}, ${a.status})`).join(" ; ") || "aucun"}`);
-      const active = accounts.filter((a) => a.status === "ACTIVE");
-      const pick = active.length === 1 ? active[0] : accounts.length === 1 ? accounts[0] : null;
-      if (!pick) throw new Error(`plusieurs comptes accessibles, renseigner LINKEDIN_AD_ACCOUNT_ID (${accounts.map((a) => a.id).join(", ")})`);
-      accountId = String(pick.id);
+    const accounts = await client.getAdAccounts();
+    if (!accounts.some((a) => String(a.id) === accountId)) {
+      throw new Error(`le jeton n'a pas accès au compte Quarkslab ${accountId} (comptes visibles : ${accounts.map((a) => a.id).join(", ") || "aucun"})`);
     }
     const account = await client.getAdAccount(accountId);
     accountName = account.name || "";
@@ -280,18 +293,12 @@ async function main() {
         website: org.localizedWebsite,
         followerCount,
       };
-      const logoUrn: string | undefined = org.logoV2?.original || org.logoV2?.["cropped"];
-      if (logoUrn) {
-        try {
-          const imgs = await client.getImages([logoUrn]);
-          const url = Object.values(imgs.results || {})[0]?.downloadUrl;
-          if (url) accountOrg.logoPath = (await downloadFile(url, ORG_DIR, "logo.jpg")) || undefined;
-        } catch (err) {
-          console.warn(`  ! logo : ${(err as Error).message.slice(0, 120)}`);
-        }
+      const logoUrl = await client.getOrganizationLogoUrl(orgId);
+      if (logoUrl) accountOrg.logoPath = (await downloadFile(logoUrl, ORG_DIR, "logo.jpg")) || undefined;
+      if (accountOrg.vanityName) {
+        const full = await client.getOrganizationByVanity(accountOrg.vanityName);
+        if (full?.localizedDescription) accountOrg.tagline = String(full.localizedDescription).slice(0, 220);
       }
-      const full = await client.getOrganization(orgId);
-      if (full?.localizedDescription) accountOrg.tagline = String(full.localizedDescription).slice(0, 220);
       console.log(`  ${accountOrg.name}, ${followerCount.toLocaleString("fr-FR")} abonnés${accountOrg.logoPath ? ", logo récupéré" : ""}`);
       writeJSON("account-org.json", accountOrg);
     } catch (err) {
@@ -311,7 +318,10 @@ async function main() {
       startDate: g.runSchedule?.start ? msToIso(g.runSchedule.start) : undefined,
       endDate: g.runSchedule?.end ? msToIso(g.runSchedule.end) : undefined,
     }));
-    console.log(`  ${campaignGroups.length} groupes : ${campaignGroups.map((g) => `${g.name} [${g.status}]`).join(" ; ")}`);
+    console.log(`  ${campaignGroups.length} groupes sur le compte : ${campaignGroups.map((g) => `${g.name} [${g.status}]`).join(" ; ")}`);
+    campaignGroups = campaignGroups.filter((g) => g.name.toLowerCase().includes(CAMPAIGN_NAME_FILTER));
+    console.log(`  ${campaignGroups.length} groupes retenus (nom contenant « ${CAMPAIGN_NAME_FILTER} »)`);
+    if (campaignGroups.length === 0) errors.push(`Aucun groupe de campagnes dont le nom contient « ${CAMPAIGN_NAME_FILTER} »`);
     writeJSON("campaign-groups.json", campaignGroups);
   } catch (err) {
     fail("Groupes de campagnes", err);
@@ -321,9 +331,14 @@ async function main() {
   // 3. Campagnes
   console.log("\n3. Campagnes");
   let campaigns: Campaign[] = [];
+  const targetingByCampaign = new Map<string, Json>();
   try {
     const raw = await client.getCampaigns(accountId);
-    campaigns = raw.map((c) => {
+    const total = raw.length;
+    const kept = raw.filter((c) => groupName.has(stripUrn(c.campaignGroup || "")) || c.name.toLowerCase().includes(CAMPAIGN_NAME_FILTER));
+    console.log(`  ${kept.length} campagnes retenues sur ${total} (groupes « ${CAMPAIGN_NAME_FILTER} » ou nom contenant « ${CAMPAIGN_NAME_FILTER} »)`);
+    for (const c of kept) if ((c as Json).targetingCriteria) targetingByCampaign.set(String(c.id), (c as Json).targetingCriteria);
+    campaigns = kept.map((c) => {
       const gid = stripUrn(c.campaignGroup || "");
       return {
         id: String(c.id),
@@ -388,6 +403,69 @@ async function main() {
   const dailyAnalytics = Array.from(dailyMap.values()).sort((a, b) => a.date.localeCompare(b.date));
   console.log(`  ${dailyAnalytics.length} points`);
   writeJSON("daily-analytics.json", dailyAnalytics);
+
+  // 5b. Portée (membres uniques) et taille d'audience par fenêtre standard.
+  // La portée n'est pas additive : elle est lue en granularité ALL sur chaque fenêtre,
+  // dédoublonnée au niveau du compte (pivot ACCOUNT) et détaillée par campagne.
+  console.log("\n5b. Portée et taille d'audience");
+  const audienceByCampaign = new Map<string, number>();
+  const audienceBySignature = new Map<string, number>();
+  for (const [cid, tc] of targetingByCampaign) {
+    const signature = JSON.stringify(tc);
+    if (!audienceBySignature.has(signature)) {
+      const n = await client.getAudienceCount(tc);
+      audienceBySignature.set(signature, n ?? 0);
+      await sleep(150);
+    }
+    audienceByCampaign.set(cid, audienceBySignature.get(signature) || 0);
+  }
+  console.log(`  ${audienceBySignature.size} audiences distinctes pour ${audienceByCampaign.size} campagnes`);
+  const reach: ReachData = { windows: {} as ReachData["windows"] };
+  // « all » part du premier jour de diffusion connu : LinkedIn renvoie une portée
+  // nulle sur les plages trop longues (180 jours), pas sur l'historique réel.
+  const firstDelivery = dailyAnalytics.find((d) => d.impressions > 0)?.date;
+  const allStart = firstDelivery ? new Date(`${firstDelivery}T00:00:00`) : dailyStart;
+  const reachWindows: Array<{ key: ReachWindow; start: Date }> = [
+    { key: "7d", start: addDays(end, -6) },
+    { key: "30d", start: addDays(end, -29) },
+    { key: "90d", start: addDays(end, -89) },
+    { key: "all", start: allStart },
+  ];
+  for (const w of reachWindows) {
+    const s = isoDate(w.start), e = isoDate(end);
+    const activeIds = new Set(dailyAnalytics.filter((d) => d.date >= s && d.date <= e && d.impressions > 0).map((d) => d.campaignId));
+    const urns = campaigns.filter((c) => activeIds.has(c.id)).map((c) => `urn:li:sponsoredCampaign:${c.id}`);
+    const data: ReachWindowData = { start: s, end: e, total: 0, byCampaign: {}, audienceByCampaign: {} };
+    try {
+      for (const batch of chunk(urns, 20)) {
+        for (const row of await client.getReach(batch, toDateParts(w.start), endParts, "CAMPAIGN")) {
+          const id = stripUrn(pivotOf(row));
+          if (id) data.byCampaign[id] = num(row.approximateMemberReach);
+        }
+      }
+      if (urns.length > 0) {
+        const rows = await client.getReach(urns, toDateParts(w.start), endParts, "ACCOUNT");
+        data.total = rows.reduce((sum, r) => sum + num(r.approximateMemberReach), 0);
+      }
+      // Taille d'audience : somme des audiences distinctes des campagnes actives.
+      const seen = new Set<string>();
+      let size = 0;
+      for (const id of activeIds) {
+        const sig = JSON.stringify(targetingByCampaign.get(id) || null);
+        data.audienceByCampaign![id] = audienceByCampaign.get(id) || 0;
+        if (!seen.has(sig)) {
+          seen.add(sig);
+          size += audienceByCampaign.get(id) || 0;
+        }
+      }
+      if (size > 0) data.audienceSize = size;
+      console.log(`  ${w.key} : ${data.total} membres atteints, audience ciblée ${data.audienceSize ?? "inconnue"} (${urns.length} campagnes)`);
+    } catch (err) {
+      fail(`Portée ${w.key}`, err);
+    }
+    reach.windows[w.key] = data;
+  }
+  writeJSON("reach.json", reach);
 
   // 6. Créatives
   console.log("\n6. Créatives");
@@ -534,9 +612,6 @@ async function main() {
       if (org) {
         info.vanityName = org.vanityName;
         info.website = org.localizedWebsite;
-        info.staffCountRange = org.staffCountRange;
-        const industries: string[] = org.industries || [];
-        if (industries[0]) info.industry = industries[0];
         const locs: Json[] = org.locations || [];
         const hq = locs.find((l) => l.locationType === "HEADQUARTERS") || locs[0];
         if (hq?.address?.country) info.country = hq.address.country;
@@ -544,6 +619,25 @@ async function main() {
       companies.organizations[id] = info;
     }
     console.log(`  ${lookup.size} fiches résolues`);
+    // Taille et type : un appel par organisation via le finder vanityName (le lookup
+    // groupé ne les expose pas). Priorité aux entreprises qui ont interagi.
+    const ranked = Object.values(companies.organizations)
+      .filter((o) => o.vanityName)
+      .sort((a, b) => {
+        const score = (id: string) => Math.max(...(["90d", "30d"] as CompanyWindow[]).map((w) => companies.windows[w].find((c) => c.orgId === id)?.engagements || 0));
+        return score(b.id) - score(a.id);
+      });
+    let sized = 0;
+    for (const o of ranked) {
+      const full = await client.getOrganizationByVanity(o.vanityName!);
+      if (full) {
+        if (full.staffCountRange) o.staffCountRange = full.staffCountRange;
+        if (full.organizationType) o.organizationType = full.organizationType;
+        sized++;
+      }
+      await sleep(120);
+    }
+    console.log(`  ${sized}/${ranked.length} fiches complétées (taille, type)`);
   } catch (err) {
     fail("Fiches des organisations", err);
     for (const id of orgIds) companies.organizations[id] = { id, name: `Organisation ${id}` };
@@ -664,13 +758,14 @@ async function main() {
   writeJSON("page-stats.json", pageStats);
 
   // 10. meta
-  writeMeta(accountId, accountName, currency, { start: isoDate(dailyStart), end: isoDate(end) });
-  console.log(`\nTerminé${errors.length ? ` avec ${errors.length} avertissement(s)` : ""}.\n`);
+  writeMeta(accountId, accountName, currency, { start: isoDate(dailyStart), end: isoDate(end) }, client.version);
+  console.log(`\nTerminé${errors.length ? ` avec ${errors.length} avertissement(s)` : ""} (API LinkedIn ${client.version}).\n`);
 }
 
-function writeMeta(accountId: string, accountName: string, currency: string, dataPeriod?: { start: string; end: string }) {
+function writeMeta(accountId: string, accountName: string, currency: string, dataPeriod?: { start: string; end: string }, apiVersion?: string) {
   const meta: Meta = {
     lastUpdated: new Date().toISOString(),
+    apiVersion,
     currency,
     dataPeriod: dataPeriod || { start: "", end: "" },
     accountId,

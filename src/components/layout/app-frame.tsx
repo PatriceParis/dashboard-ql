@@ -24,21 +24,19 @@ export function AppFrame({ meta, accountOrg, children }: { meta: Meta; accountOr
               <img src="/quarkslab-logo.svg" alt="Quarkslab" className="h-7 w-auto" />
               <span className="hidden sm:block h-6 w-px bg-border" aria-hidden />
               <div className="min-w-0">
-                <p className="text-sm font-semibold leading-tight">Reporting LinkedIn</p>
-                <p className="text-xs text-muted-foreground leading-tight">
-                  {accountOrg?.name || "Quarkslab"} · publicités et page entreprise
-                </p>
+                <p className="text-sm font-semibold leading-tight">LinkedIn reporting</p>
+                <p className="text-xs text-muted-foreground leading-tight">{accountOrg?.name || "Quarkslab"} · ABX campaigns and company Page</p>
               </div>
             </div>
             <div className="text-xs text-muted-foreground text-right leading-relaxed">
               {meta.dataPeriod?.end ? (
                 <>
-                  Données arrêtées au <span className="text-foreground font-medium">{formatDate(meta.dataPeriod.end)}</span>
+                  Data up to <span className="text-foreground font-medium">{formatDate(meta.dataPeriod.end)}</span>
                   <br />
-                  Mise à jour {formatDateTime(meta.lastUpdated)}
+                  Updated {formatDateTime(meta.lastUpdated)}
                 </>
               ) : (
-                "Données non encore récupérées"
+                "Data not retrieved yet"
               )}
             </div>
           </div>
@@ -71,7 +69,17 @@ export function AppFrame({ meta, accountOrg, children }: { meta: Meta; accountOr
       )}
       <main className="max-w-[1360px] mx-auto px-4 sm:px-6 py-6">{children}</main>
       <footer className="max-w-[1360px] mx-auto px-4 sm:px-6 pb-8 pt-2 text-xs text-muted-foreground">
-        {SITE_TITLE}. Source : LinkedIn Marketing API, données arrêtées à la veille. Flow Ops.
+        {SITE_TITLE}. Source: LinkedIn Marketing API{meta.apiVersion ? ` (version ${meta.apiVersion})` : ""}, data up to the previous day. Flow Ops.
+        {meta.errors?.length > 0 && (
+          <details className="mt-2">
+            <summary className="cursor-pointer">Technical notes from the last data refresh ({meta.errors.length})</summary>
+            <ul className="list-disc ml-5 mt-1 space-y-0.5 break-all">
+              {meta.errors.map((e, i) => (
+                <li key={i}>{e}</li>
+              ))}
+            </ul>
+          </details>
+        )}
       </footer>
     </PeriodProvider>
   );

@@ -8,7 +8,21 @@ dotenv.config({ path: path.join(process.cwd(), ".env.local") });
 dotenv.config({ path: path.join(process.cwd(), ".env") });
 
 const BASE_URL = "https://api.linkedin.com";
-const API_VERSION = process.env.LINKEDIN_API_VERSION || "202509";
+// Les versions LinkedIn (AAAAMM) sont retirées douze mois après leur sortie
+// (avis du 22/10/2026 : 202511 retirée le 16/11/2026, dernière version 202610).
+// On part de la version configurée ou du mois courant et, sur 426
+// NONEXISTENT_VERSION, on remonte mois par mois jusqu'à une version active.
+const CONFIGURED_VERSION = process.env.LINKEDIN_API_VERSION || "";
+
+function candidateVersions(): string[] {
+  const out: string[] = [];
+  const now = new Date();
+  for (let i = 0; i <= 14; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    out.push(`${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}`);
+  }
+  return out;
+}
 
 export interface DateParts {
   year: number;
@@ -51,6 +65,14 @@ export function listParam(values: string[]): string {
   return `List(${values.map((v) => v.replace(/:/g, "%3A")).join(",")})`;
 }
 
+// Encodage Rest.li 2.0 d'une structure JSON (critères de ciblage) en paramètre d'URL.
+export function restliEncode(value: unknown): string {
+  const enc = (s: string) => encodeURIComponent(s).replace(/\(/g, "%28").replace(/\)/g, "%29");
+  if (Array.isArray(value)) return `List(${value.map(restliEncode).join(",")})`;
+  if (value && typeof value === "object") return `(${Object.entries(value as Record<string, unknown>).map(([k, v]) => `${enc(k)}:${restliEncode(v)}`).join(",")})`;
+  return enc(String(value));
+}
+
 export function timeIntervalsParam(startMs: number, endMs: number, granularity: "DAY" | "MONTH" = "DAY"): string {
   return `(timeRange:(start:${startMs},end:${endMs}),timeGranularityType:${granularity})`;
 }
@@ -59,10 +81,13 @@ type Json = any;
 
 export class LinkedInAPIClient {
   private accessToken: string;
+  version: string;
+  private versionResolved = false;
 
   constructor() {
     this.accessToken = process.env.LINKEDIN_ACCESS_TOKEN || "";
     if (!this.accessToken) throw new Error("LINKEDIN_ACCESS_TOKEN absent : lancer `npm run auth`.");
+    this.version = CONFIGURED_VERSION || candidateVersions()[0];
   }
 
   private headers(legacy = false): Record<string, string> {
@@ -71,8 +96,21 @@ export class LinkedInAPIClient {
       "X-Restli-Protocol-Version": "2.0.0",
       Accept: "application/json",
     };
-    if (!legacy) h["LinkedIn-Version"] = API_VERSION;
+    if (!legacy) h["LinkedIn-Version"] = this.version;
     return h;
+  }
+
+  // Cherche la version d'API la plus récente acceptée par LinkedIn.
+  private async resolveVersion(): Promise<void> {
+    for (const v of candidateVersions()) {
+      const res = await fetch(`${BASE_URL}/rest/adAccounts?q=search&count=1`, { headers: { ...this.headers(), "LinkedIn-Version": v } });
+      if (res.status !== 426) {
+        console.log(`  [api] version LinkedIn active : ${v}${v !== this.version ? ` (configurée : ${this.version})` : ""}`);
+        this.version = v;
+        return;
+      }
+    }
+    throw new Error("aucune version d'API LinkedIn active sur les 14 derniers mois");
   }
 
   // GET brut : l'URL est construite par l'appelant pour préserver la syntaxe Rest.li.
@@ -80,6 +118,11 @@ export class LinkedInAPIClient {
     const url = pathWithQuery.startsWith("http") ? pathWithQuery : `${BASE_URL}${pathWithQuery}`;
     for (let attempt = 0; attempt < 5; attempt++) {
       const res = await fetch(url, { headers: this.headers(opts.legacy) });
+      if (res.status === 426 && !this.versionResolved) {
+        this.versionResolved = true;
+        await this.resolveVersion();
+        continue;
+      }
       if (res.status === 429 || res.status === 503) {
         const retryAfter = parseInt(res.headers.get("Retry-After") || "5", 10);
         const wait = Math.min(60, Number.isFinite(retryAfter) ? retryAfter : 5);
@@ -123,7 +166,7 @@ export class LinkedInAPIClient {
 
   async getCampaignGroups(accountId: number | string) {
     return this.fetchAllPages<{ id: number; name: string; status: string; runSchedule?: { start?: number; end?: number } }>(
-      `/rest/adAccounts/${accountId}/adCampaignGroups?q=search&search=(status:(values:List(ACTIVE,PAUSED,ARCHIVED,COMPLETED,DRAFT)))`
+      `/rest/adAccounts/${accountId}/adCampaignGroups?q=search&search=(status:(values:List(ACTIVE,PAUSED,ARCHIVED,DRAFT,CANCELED)))`
     );
   }
 
@@ -164,7 +207,32 @@ export class LinkedInAPIClient {
     "videoMidpointCompletions",
     "videoThirdQuartileCompletions",
     "videoCompletions",
+    "averageDwellTime",
   ].join(",");
+
+  // Taille estimée de l'audience ciblée par des critères de campagne (champ `total`).
+  async getAudienceCount(targetingCriteria: unknown): Promise<number | null> {
+    try {
+      const d = await this.getRaw<{ elements: Array<{ total?: number; active?: number }> }>(
+        `/rest/audienceCounts?q=targetingCriteriaV2&targetingCriteria=${restliEncode(targetingCriteria)}`
+      );
+      const total = d.elements?.[0]?.total;
+      return typeof total === "number" ? total : null;
+    } catch (err) {
+      console.warn(`  [api] audienceCounts : ${(err as Error).message.slice(0, 120)}`);
+      return null;
+    }
+  }
+
+  // Portée approximative (membres uniques) : fiable en granularité ALL seulement.
+  // pivot ACCOUNT = total dédoublonné sur les campagnes listées ; pivot CAMPAIGN = par campagne.
+  async getReach(campaignUrns: string[], start: DateParts, end: DateParts, pivot: "CAMPAIGN" | "ACCOUNT" = "CAMPAIGN") {
+    if (campaignUrns.length === 0) return [] as Json[];
+    const data = await this.getRaw<{ elements: Json[] }>(
+      `/rest/adAnalytics?q=analytics&pivot=${pivot}&timeGranularity=ALL&dateRange=${dateRangeParam(start, end)}&campaigns=${listParam(campaignUrns)}&fields=pivotValues,impressions,approximateMemberReach,costInLocalCurrency`
+    );
+    return data.elements || [];
+  }
 
   async getAnalytics(campaignUrns: string[], start: DateParts, end: DateParts, granularity: "ALL" | "DAILY" = "ALL", pivot = "CAMPAIGN") {
     if (campaignUrns.length === 0) return [] as Json[];
@@ -196,8 +264,11 @@ export class LinkedInAPIClient {
 
   // Ventilation entreprise × campagne. Le finder `statistics` accepte deux pivots ;
   // s'il refuse, on retombe sur un appel MEMBER_COMPANY par campagne.
+  private statisticsFinderRefused = false;
+
   async getCompanyAnalyticsByCampaign(campaignUrns: string[], start: DateParts, end: DateParts): Promise<Array<{ campaignUrn: string; row: Json }>> {
     if (campaignUrns.length === 0) return [];
+    if (this.statisticsFinderRefused) return this.companyAnalyticsPerCampaign(campaignUrns, start, end);
     try {
       const data = await this.getRaw<{ elements: Json[] }>(
         `/rest/adAnalytics?q=statistics&pivots=List(CAMPAIGN,MEMBER_COMPANY)&timeGranularity=ALL&dateRange=${dateRangeParam(start, end)}&campaigns=${listParam(campaignUrns)}&fields=${LinkedInAPIClient.COMPANY_FIELDS}`
@@ -212,18 +283,40 @@ export class LinkedInAPIClient {
       }
       return out;
     } catch (err) {
+      this.statisticsFinderRefused = true;
       console.warn(`  [api] statistics à deux pivots refusé (${(err as Error).message.slice(0, 120)}), repli campagne par campagne`);
-      const out: Array<{ campaignUrn: string; row: Json }> = [];
-      for (const urn of campaignUrns) {
-        try {
-          const rows = await this.getCompanyAnalytics([urn], start, end);
-          for (const row of rows) out.push({ campaignUrn: urn, row });
-        } catch (e) {
-          console.warn(`  [api] ${urn} : ${(e as Error).message.slice(0, 120)}`);
-        }
-        await sleep(200);
+      return this.companyAnalyticsPerCampaign(campaignUrns, start, end);
+    }
+  }
+
+  private async companyAnalyticsPerCampaign(campaignUrns: string[], start: DateParts, end: DateParts): Promise<Array<{ campaignUrn: string; row: Json }>> {
+    const out: Array<{ campaignUrn: string; row: Json }> = [];
+    for (const urn of campaignUrns) {
+      try {
+        const rows = await this.getCompanyAnalytics([urn], start, end);
+        for (const row of rows) out.push({ campaignUrn: urn, row });
+      } catch (e) {
+        console.warn(`  [api] ${urn} : ${(e as Error).message.slice(0, 120)}`);
       }
-      return out;
+      await sleep(200);
+    }
+    return out;
+  }
+
+  // Logo de la page : le /rest/organizationsLookup ne renvoie qu'un URN digitalmediaAsset,
+  // inutilisable avec /rest/images ; l'API v2 avec décoration `~` donne les URL.
+  async getOrganizationLogoUrl(orgId: string | number): Promise<string | null> {
+    try {
+      const res = await fetch(`${BASE_URL}/v2/organizations/${orgId}?projection=(id,logoV2(original~:playableStreams))`, {
+        headers: { Authorization: `Bearer ${this.accessToken}`, "X-Restli-Protocol-Version": "2.0.0" },
+      });
+      if (!res.ok) return null;
+      const d = (await res.json()) as Json;
+      const elements: Json[] = d?.logoV2?.["original~"]?.elements || [];
+      const best = elements.sort((a, b) => (b.data?.["com.linkedin.digitalmedia.mediaartifact.StillImage"]?.storageSize?.width || 0) - (a.data?.["com.linkedin.digitalmedia.mediaartifact.StillImage"]?.storageSize?.width || 0))[0];
+      return best?.identifiers?.[0]?.identifier || null;
+    } catch {
+      return null;
     }
   }
 
@@ -395,6 +488,17 @@ export class LinkedInAPIClient {
       await sleep(300);
     }
     return out;
+  }
+
+  // Le finder par vanityName est le seul accès, sans rôle administrateur, à la taille
+  // (staffCountRange), au type et à la description d'une organisation tierce.
+  async getOrganizationByVanity(vanityName: string): Promise<Json | null> {
+    try {
+      const d = await this.getRaw<{ elements: Json[] }>(`/rest/organizations?q=vanityName&vanityName=${encodeURIComponent(vanityName)}`);
+      return d.elements?.[0] || null;
+    } catch {
+      return null;
+    }
   }
 
   async getOrganization(orgId: string | number): Promise<Json | null> {

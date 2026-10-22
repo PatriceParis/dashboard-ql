@@ -5,7 +5,7 @@ import { Download, Search } from "lucide-react";
 import type { Campaign, CampaignGroup, CampaignWindow, CompaniesData, CompanyMetrics, CompanyWindow, DemographicsData } from "@/lib/types";
 import { COMPANY_WINDOWS } from "@/lib/constants";
 import { SEGMENTS, matchesSegment, type SegmentContext, type SegmentKey, companyLevel } from "@/lib/segments";
-import { countryLabel, industryLabel, staffCountLabel, staffCountMin, STAFF_COUNT_ORDER } from "@/lib/linkedin-taxonomy";
+import { countryLabel, orgTypeLabel, staffCountLabel, STAFF_COUNT_ORDER } from "@/lib/linkedin-taxonomy";
 import { BarList, Card, CardHeader, EmptyState, InfoTip, Segmented } from "@/components/ui/primitives";
 import { CompanyTable } from "./company-table";
 import { cn, formatNumber, plural } from "@/lib/utils";
@@ -30,19 +30,16 @@ function mergeRows(lists: CompanyMetrics[][]): CompanyMetrics[] {
 }
 
 export function CompaniesShell({ companies, demographics, campaigns, campaignGroups }: { companies: CompaniesData; demographics: DemographicsData; campaigns: Campaign[]; campaignGroups: CampaignGroup[] }) {
-  const [window, setWindow] = useState<Window>("30d");
-  const [segment, setSegment] = useState<SegmentKey>("all");
+  const [window, setWindow] = useState<Window>("90d");
+  const [segment, setSegment] = useState<SegmentKey | null>(null);
   const [search, setSearch] = useState("");
   const [campaignFilter, setCampaignFilter] = useState<string>("all"); // all | group:<id> | <campaignId>
-  const [country, setCountry] = useState<"all" | "FR">("all");
-  const [size, setSize] = useState<"all" | "201">("all");
 
   const orgs = companies.organizations;
   const campaignFiltered = campaignFilter !== "all";
-  // La ventilation par campagne n'existe que sur 30 et 90 jours.
+  // The per-campaign breakdown only exists for the 30 and 90-day windows.
   const effectiveWindow: CompanyWindow = campaignFiltered && window === "7d" ? "30d" : window;
 
-  // Campagnes ventilées (celles qui ont diffusé dans la fenêtre), groupées pour le sélecteur.
   const campaignOptions = useMemo(() => {
     const available = new Set([...Object.keys(companies.byCampaign["30d"]), ...Object.keys(companies.byCampaign["90d"])]);
     const byGroup = new Map<string, { group: CampaignGroup | undefined; items: Campaign[] }>();
@@ -52,7 +49,7 @@ export function CompaniesShell({ companies, demographics, campaigns, campaignGro
       if (!byGroup.has(gid)) byGroup.set(gid, { group: campaignGroups.find((g) => g.id === gid), items: [] });
       byGroup.get(gid)!.items.push(c);
     }
-    return Array.from(byGroup.entries()).map(([gid, v]) => ({ gid, name: v.group?.name || "Sans groupe", items: v.items }));
+    return Array.from(byGroup.entries()).map(([gid, v]) => ({ gid, name: v.group?.name || "No campaign", items: v.items }));
   }, [companies.byCampaign, campaigns, campaignGroups]);
 
   const base = useMemo<CompanyMetrics[]>(() => {
@@ -69,46 +66,34 @@ export function CompaniesShell({ companies, demographics, campaigns, campaignGro
   const ctx = useMemo<SegmentContext>(
     () => ({
       organizations: orgs,
-      recentEngagedIds: new Set(companies.windows["7d"].filter((c) => c.engagements >= 1).map((c) => c.orgId)),
-      previousIds: effectiveWindow === "30d" && !campaignFiltered ? new Set(companies.windows["31-60"].map((c) => c.orgId)) : null,
+      recentEngagedIds: new Set(companies.windows["30d"].filter((c) => c.engagements >= 1).map((c) => c.orgId)),
     }),
-    [orgs, companies.windows, effectiveWindow, campaignFiltered]
-  );
-
-  const prefiltered = useMemo(
-    () =>
-      base.filter((c) => {
-        const o = orgs[c.orgId];
-        if (country === "FR" && o?.country !== "FR") return false;
-        if (size === "201" && staffCountMin(o?.staffCountRange) < 201) return false;
-        return true;
-      }),
-    [base, orgs, country, size]
+    [orgs, companies.windows]
   );
 
   const segmentCounts = useMemo(() => {
     const counts: Partial<Record<SegmentKey, number>> = {};
-    for (const s of SEGMENTS) counts[s.key] = prefiltered.filter((c) => matchesSegment(s.key, c, ctx)).length;
+    for (const s of SEGMENTS) counts[s.key] = s.available ? base.filter((c) => matchesSegment(s.key, c, ctx)).length : 0;
     return counts;
-  }, [prefiltered, ctx]);
+  }, [base, ctx]);
 
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return prefiltered.filter((c) => matchesSegment(segment, c, ctx) && (!q || (orgs[c.orgId]?.name || "").toLowerCase().includes(q)));
-  }, [prefiltered, segment, ctx, search, orgs]);
+    return base.filter((c) => (!segment || matchesSegment(segment, c, ctx)) && (!q || (orgs[c.orgId]?.name || "").toLowerCase().includes(q)));
+  }, [base, segment, ctx, search, orgs]);
 
-  const visibleSegments = SEGMENTS.filter((s) => s.key !== "new" || ctx.previousIds !== null);
+  const windowLabel = COMPANY_WINDOWS.find((w) => w.key === effectiveWindow)?.label.toLowerCase() || "";
 
   const exportCsv = () => {
-    const header = ["Entreprise", "Site", "LinkedIn", "Secteur", "Effectif", "Pays", "Impressions", "Clics", "Interactions", "Leads", "Clics vers le site", "Niveau"];
+    const header = ["Company", "Website", "LinkedIn", "Company size", "Type", "Country", "Impressions", "Clicks", "Engagements", "Leads", "Website clicks", "Level"];
     const lines = rows.map((c) => {
       const o = orgs[c.orgId];
       return [
         o?.name || c.orgId,
         o?.website || "",
         o?.vanityName ? `https://www.linkedin.com/company/${o.vanityName}` : "",
-        industryLabel(o?.industry),
-        staffCountLabel(o?.staffCountRange),
+        o?.staffCountRange ? staffCountLabel(o.staffCountRange) : "",
+        orgTypeLabel(o?.organizationType),
         countryLabel(o?.country),
         c.impressions,
         c.clicks,
@@ -118,12 +103,12 @@ export function CompaniesShell({ companies, demographics, campaigns, campaignGro
         companyLevel(c),
       ]
         .map((v) => `"${String(v).replace(/"/g, '""')}"`)
-        .join(";");
+        .join(",");
     });
-    const blob = new Blob(["﻿" + [header.join(";"), ...lines].join("\r\n")], { type: "text/csv;charset=utf-8" });
+    const blob = new Blob(["﻿" + [header.join(","), ...lines].join("\r\n")], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `entreprises-linkedin-${effectiveWindow}-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `linkedin-companies-${effectiveWindow}-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(a.href);
   };
@@ -136,104 +121,100 @@ export function CompaniesShell({ companies, demographics, campaigns, campaignGro
     <div className="space-y-5">
       <Card>
         <div className="px-5 py-4 flex flex-wrap items-center gap-x-5 gap-y-3">
-          <Segmented value={window} onChange={(w) => setWindow(w)} options={COMPANY_WINDOWS.map((w) => ({ key: w.key, label: w.label }))} />
-          <label className="text-sm text-muted-foreground inline-flex items-center gap-2">
-            Campagne
-            <select
-              id="companies-campaign"
-              value={campaignFilter}
-              onChange={(e) => setCampaignFilter(e.target.value)}
-              className="bg-card border border-border rounded-md px-2 py-1.5 text-sm text-foreground max-w-[320px]"
-            >
-              <option value="all">Toutes les campagnes</option>
-              {campaignOptions.map((g) => (
-                <optgroup key={g.gid} label={g.name}>
-                  {g.items.length > 1 && <option value={`group:${g.gid}`}>Tout le groupe « {g.name} »</option>}
-                  {g.items.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-          </label>
-          <label className="text-sm text-muted-foreground inline-flex items-center gap-2">
-            <input id="companies-fr" type="checkbox" checked={country === "FR"} onChange={(e) => setCountry(e.target.checked ? "FR" : "all")} className="accent-primary" />
-            France seulement
-          </label>
-          <label className="text-sm text-muted-foreground inline-flex items-center gap-2">
-            <input id="companies-size" type="checkbox" checked={size === "201"} onChange={(e) => setSize(e.target.checked ? "201" : "all")} className="accent-primary" />
-            Plus de 200 salariés
-          </label>
-          <div className="relative ml-auto">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input
-              id="companies-search"
-              type="search"
-              placeholder="Rechercher une entreprise"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-8 pr-3 py-1.5 rounded-md border border-border bg-card text-sm w-56 focus:outline-none focus:ring-2 focus:ring-primary/20"
-            />
+          <div className="text-base font-semibold tnum">
+            {formatNumber(base.length)} {plural(base.length, "company", "companies")}
+            <span className="text-sm font-normal text-muted-foreground ml-2">reached by the ads, {windowLabel}</span>
+          </div>
+          <div className="ml-auto flex flex-wrap items-center gap-x-5 gap-y-3">
+            <Segmented value={window} onChange={(w) => setWindow(w)} options={COMPANY_WINDOWS.map((w) => ({ key: w.key, label: w.label }))} />
+            <label className="text-sm text-muted-foreground inline-flex items-center gap-2">
+              Campaign
+              <select id="companies-campaign" value={campaignFilter} onChange={(e) => setCampaignFilter(e.target.value)} className="bg-card border border-border rounded-md px-2 py-1.5 text-sm text-foreground max-w-[320px]">
+                <option value="all">All campaigns</option>
+                {campaignOptions.map((g) => (
+                  <optgroup key={g.gid} label={g.name}>
+                    {g.items.length > 1 && <option value={`group:${g.gid}`}>Whole campaign "{g.name}"</option>}
+                    {g.items.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </label>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <input id="companies-search" type="search" placeholder="Search company" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8 pr-3 py-1.5 rounded-md border border-border bg-card text-sm w-52 focus:outline-none focus:ring-2 focus:ring-primary/20" />
+            </div>
           </div>
         </div>
-        {campaignFiltered && window === "7d" && <p className="px-5 pb-3 text-xs text-warning">La ventilation par campagne existe sur 30 et 90 jours : affichage sur 30 jours.</p>}
-        {campaignFiltered && <p className="px-5 pb-3 text-xs text-muted-foreground">Chiffres propres à la sélection. LinkedIn masque les entreprises à très faible volume dans la ventilation par campagne : le total par campagne peut être inférieur à la vue « toutes les campagnes ».</p>}
+        {campaignFiltered && window === "7d" && <p className="px-5 pb-3 text-xs text-warning">The per-campaign breakdown exists for 30 and 90 days: showing 30 days.</p>}
+        {campaignFiltered && <p className="px-5 pb-3 text-xs text-muted-foreground">Figures for the selection only. LinkedIn hides very low volumes in the per-campaign breakdown, so a campaign total can be lower than the all-campaigns view.</p>}
       </Card>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-2">
-        {visibleSegments.map((s) => (
-          <button
-            key={s.key}
-            onClick={() => setSegment(s.key)}
-            className={cn(
-              "text-left rounded-lg border px-3 py-2.5 transition-colors",
-              segment === s.key ? "border-primary bg-primary-soft" : "border-border bg-card hover:border-primary/40"
-            )}
-            aria-pressed={segment === s.key}
-          >
-            <div className="flex items-center gap-1 text-xs text-muted-foreground leading-tight min-h-[2rem]">
-              <span>{s.label}</span>
-              <InfoTip text={s.rule} />
-            </div>
-            <div className={cn("text-xl font-semibold tnum mt-1", segment === s.key ? "text-primary" : "text-foreground")}>{formatNumber(segmentCounts[s.key] || 0)}</div>
-          </button>
-        ))}
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2">
+        {SEGMENTS.map((s) => {
+          const active = segment === s.key;
+          return (
+            <button
+              key={s.key}
+              onClick={() => s.available && setSegment(active ? null : s.key)}
+              disabled={!s.available}
+              className={cn(
+                "text-left rounded-lg border px-3 py-2.5 transition-colors",
+                active ? "border-primary bg-primary-soft" : "border-border bg-card",
+                s.available ? "hover:border-primary/40" : "opacity-60 cursor-not-allowed"
+              )}
+              aria-pressed={active}
+            >
+              <div className="flex items-center gap-1 text-sm font-medium leading-tight">
+                <span className="truncate">{s.label}</span>
+                <InfoTip text={s.rule} />
+              </div>
+              <div className={cn("text-sm tnum mt-1", active ? "text-primary" : "text-muted-foreground")}>
+                {s.available ? `${formatNumber(segmentCounts[s.key] || 0)} ${plural(segmentCounts[s.key] || 0, "company", "companies")}` : "not available via API"}
+              </div>
+            </button>
+          );
+        })}
       </div>
 
       <Card>
         <CardHeader
-          title={`${formatNumber(rows.length)} ${plural(rows.length, "entreprise")}`}
-          subtitle={`${SEGMENTS.find((s) => s.key === segment)?.label}, ${COMPANY_WINDOWS.find((w) => w.key === effectiveWindow)?.label.toLowerCase()}${campaignFiltered ? ", sélection de campagne" : ""}`}
+          title={`${formatNumber(rows.length)} ${plural(rows.length, "company", "companies")}`}
+          subtitle={`${segment ? SEGMENTS.find((s) => s.key === segment)?.label : "All companies reached"}, ${windowLabel}${campaignFiltered ? ", campaign selection" : ""}`}
           action={
             <button onClick={exportCsv} disabled={rows.length === 0} className="inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-md border border-border bg-card hover:bg-muted disabled:opacity-50">
-              <Download className="w-4 h-4" /> Exporter en CSV
+              <Download className="w-4 h-4" /> Export CSV
             </button>
           }
         />
         <div className="px-2 pb-3">
-          {rows.length === 0 ? <EmptyState title="Aucune entreprise" text="Modifier le segment, la fenêtre ou la campagne." /> : <CompanyTable rows={rows} organizations={orgs} />}
+          {rows.length === 0 ? <EmptyState title="No companies" text="Change the segment, the period or the campaign." /> : <CompanyTable rows={rows} organizations={orgs} />}
         </div>
+        <p className="px-5 pb-4 text-xs text-muted-foreground">
+          Source: paid impressions by company (LinkedIn Marketing API). LinkedIn's Companies hub also counts organic Page activity and website visits, and hides companies below a privacy threshold, so its totals differ.
+        </p>
       </Card>
 
       <Card>
-        <CardHeader title="Profil de l'audience touchée" subtitle={`Répartition des impressions sur ${demoWindow === "30d" ? "30" : "90"} jours, toutes campagnes confondues`} tip="Ventilation fournie par LinkedIn sur les membres ayant vu les publicités. Les secteurs sont ceux déclarés par les membres." />
+        <CardHeader title="Profile of the audience reached" subtitle={`Share of impressions over ${demoWindow === "30d" ? "30" : "90"} days, all campaigns`} tip="Breakdown provided by LinkedIn for the members who saw the ads, based on the members' own profile data." />
         <div className="px-5 pb-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
           <div>
-            <h3 className="text-sm font-medium mb-3">Fonctions</h3>
+            <h3 className="text-sm font-medium mb-3">Job functions</h3>
             <BarList rows={(demo?.function || []).map((r) => ({ label: r.label, value: r.impressions }))} />
           </div>
           <div>
-            <h3 className="text-sm font-medium mb-3">Niveaux hiérarchiques</h3>
+            <h3 className="text-sm font-medium mb-3">Seniority</h3>
             <BarList rows={(demo?.seniority || []).map((r) => ({ label: r.label, value: r.impressions }))} />
           </div>
           <div>
-            <h3 className="text-sm font-medium mb-3">Tailles d'entreprise</h3>
+            <h3 className="text-sm font-medium mb-3">Company size</h3>
             <BarList rows={sizeRows.map((r) => ({ label: r.label, value: r.impressions }))} max={9} />
           </div>
           <div>
-            <h3 className="text-sm font-medium mb-3">Secteurs</h3>
+            <h3 className="text-sm font-medium mb-3">Industries</h3>
             <BarList rows={(demo?.industry || []).map((r) => ({ label: r.label, value: r.impressions }))} />
           </div>
         </div>

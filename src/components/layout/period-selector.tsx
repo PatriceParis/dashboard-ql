@@ -7,10 +7,10 @@ import { previousRange } from "@/lib/kpi";
 import { cn } from "@/lib/utils";
 
 const PRESETS: Array<{ key: Exclude<PeriodPreset, "custom">; label: string }> = [
-  { key: "7", label: "7 jours" },
-  { key: "30", label: "30 jours" },
-  { key: "90", label: "90 jours" },
-  { key: "all", label: "Tout l'historique" },
+  { key: "7", label: "7 days" },
+  { key: "30", label: "30 days" },
+  { key: "90", label: "90 days" },
+  { key: "all", label: "Full history" },
 ];
 
 export function PeriodSelector() {
@@ -44,9 +44,9 @@ export function PeriodSelector() {
           max={end}
           onChange={(e) => e.target.value && setCustom(e.target.value, end)}
           className="bg-card border border-border rounded-md px-2 py-1 text-sm"
-          aria-label="Début de période"
+          aria-label="Period start"
         />
-        <span className="text-muted-foreground">au</span>
+        <span className="text-muted-foreground">to</span>
         <input
           id="period-end"
           type="date"
@@ -55,11 +55,11 @@ export function PeriodSelector() {
           max={bounds.end}
           onChange={(e) => e.target.value && setCustom(start, e.target.value)}
           className="bg-card border border-border rounded-md px-2 py-1 text-sm"
-          aria-label="Fin de période"
+          aria-label="Period end"
         />
       </div>
       <p className="text-xs text-muted-foreground">
-        {days} {days > 1 ? "jours" : "jour"}, comparés au {formatDate(prev.start)} au {formatDate(prev.end)}
+        {days} {days === 1 ? "day" : "days"}, compared with {formatDate(prev.start)} to {formatDate(prev.end)}
       </p>
     </div>
   );

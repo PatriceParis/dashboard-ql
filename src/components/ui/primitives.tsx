@@ -73,8 +73,8 @@ export function BarList({ rows, total, formatValue, max = 8 }: { rows: Array<{ l
   const top = rows.slice(0, max);
   const rest = rows.slice(max).reduce((s, r) => s + r.value, 0);
   const maxValue = Math.max(...top.map((r) => r.value), 1);
-  const fmt = formatValue || ((v: number) => v.toLocaleString("fr-FR"));
-  if (rows.length === 0) return <p className="text-sm text-muted-foreground py-4">Aucune donnée.</p>;
+  const fmt = formatValue || ((v: number) => v.toLocaleString("en-GB"));
+  if (rows.length === 0) return <p className="text-sm text-muted-foreground py-4">No data.</p>;
   return (
     <ul className="space-y-2">
       {top.map((r) => (
@@ -83,7 +83,7 @@ export function BarList({ rows, total, formatValue, max = 8 }: { rows: Array<{ l
             <span className="truncate text-foreground">{r.label}</span>
             <span className="tnum text-muted-foreground shrink-0">
               {fmt(r.value)}
-              {sum > 0 && <span className="ml-1.5 text-xs">({Math.round((r.value / sum) * 100)}&nbsp;%)</span>}
+              {sum > 0 && <span className="ml-1.5 text-xs">({Math.round((r.value / sum) * 100)}%)</span>}
             </span>
           </div>
           <div className="h-1.5 rounded-full bg-muted overflow-hidden">
@@ -93,7 +93,7 @@ export function BarList({ rows, total, formatValue, max = 8 }: { rows: Array<{ l
       ))}
       {rest > 0 && (
         <li className="text-xs text-muted-foreground pt-1">
-          Autres : {fmt(rest)} ({Math.round((rest / sum) * 100)}&nbsp;%)
+          Other: {fmt(rest)} ({Math.round((rest / sum) * 100)}%)
         </li>
       )}
     </ul>

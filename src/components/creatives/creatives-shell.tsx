@@ -40,7 +40,7 @@ export function CreativesShell({ data }: { data: DashboardData }) {
     for (const c of base) {
       const camp = campaignById.get(c.campaignId);
       const id = camp?.campaignGroupId || "none";
-      const name = camp?.campaignGroupName || "Sans groupe";
+      const name = camp?.campaignGroupName || "No campaign";
       const g = map.get(id) || { id, name, count: 0, impressions: 0 };
       g.count++;
       g.impressions += c.impressions || 0;
@@ -69,33 +69,33 @@ export function CreativesShell({ data }: { data: DashboardData }) {
             value={scope}
             onChange={setScope}
             options={[
-              { key: "period", label: "Diffusées sur la période" },
-              { key: "all", label: "Toutes" },
+              { key: "period", label: "Delivered over the period" },
+              { key: "all", label: "All" },
             ]}
           />
           <Segmented
             value={status}
             onChange={setStatus}
             options={[
-              { key: "active", label: "Actives" },
-              { key: "all", label: "Tous statuts" },
+              { key: "active", label: "Active" },
+              { key: "all", label: "All statuses" },
             ]}
           />
           <label className="text-sm text-muted-foreground inline-flex items-center gap-2">
-            Trier par
+            Sort by
             <select id="creatives-sort" value={sort} onChange={(e) => setSort(e.target.value as SortKey)} className="bg-card border border-border rounded-md px-2 py-1.5 text-sm text-foreground">
               <option value="impressions">Impressions</option>
-              <option value="ctr">Taux de clic</option>
-              <option value="engagements">Interactions</option>
+              <option value="ctr">Click-through rate</option>
+              <option value="engagements">Engagements</option>
               <option value="leads">Leads</option>
             </select>
           </label>
-          <span className="text-xs text-muted-foreground ml-auto">Statistiques par publicité sur 90 jours</span>
+          <span className="text-xs text-muted-foreground ml-auto">Per-ad statistics over the last 90 days</span>
         </div>
         {groups.length > 1 && (
           <div className="px-5 pb-4 flex flex-wrap gap-2">
             <button onClick={() => setGroup("all")} className={cn("px-3 py-1.5 rounded-md text-sm font-medium border transition-colors", group === "all" ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground hover:text-foreground")}>
-              Tous les groupes <span className="opacity-70 tnum">({base.length})</span>
+              All campaigns <span className="opacity-70 tnum">({base.length})</span>
             </button>
             {groups.map((g) => (
               <button key={g.id} onClick={() => setGroup(g.id)} className={cn("px-3 py-1.5 rounded-md text-sm font-medium border transition-colors", group === g.id ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground hover:text-foreground")}>
@@ -108,7 +108,7 @@ export function CreativesShell({ data }: { data: DashboardData }) {
 
       {shown.length === 0 ? (
         <Card>
-          <EmptyState title="Aucune publicité pour ces critères" text="Élargir la période ou afficher tous les statuts." />
+          <EmptyState title="No ads match these filters" text="Widen the period or show all statuses." />
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
@@ -120,10 +120,10 @@ export function CreativesShell({ data }: { data: DashboardData }) {
 
       {links.length > 0 && (
         <Card>
-          <CardHeader title="Liens des publications sponsorisées" subtitle="Pour le suivi des interactions dans Clay : une liste séparée par des virgules, prête à coller" />
+          <CardHeader title="Sponsored post links" subtitle="Comma-separated list, ready to paste into the engagement tracking tools" />
           <div className="px-5 pb-5 space-y-4">
-            <LinkBlock label={`Toutes les publicités affichées (${links.length})`} links={links} />
-            {tlaLinks.length > 0 && tlaLinks.length !== links.length && <LinkBlock label={`Thought Leader Ads seulement (${tlaLinks.length})`} links={tlaLinks} />}
+            <LinkBlock label={`All ads shown (${links.length})`} links={links} />
+            {tlaLinks.length > 0 && tlaLinks.length !== links.length && <LinkBlock label={`Thought Leader Ads only (${tlaLinks.length})`} links={tlaLinks} />}
           </div>
         </Card>
       )}
@@ -147,7 +147,7 @@ function LinkBlock({ label, links }: { label: string; links: string[] }) {
         <p className="text-sm font-medium">{label}</p>
         <button onClick={copy} className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90">
           {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-          {copied ? "Copié" : "Copier"}
+          {copied ? "Copied" : "Copy"}
         </button>
       </div>
       <textarea readOnly value={text} rows={3} className="w-full text-xs font-mono bg-muted border border-border rounded-md p-2 text-muted-foreground" />
