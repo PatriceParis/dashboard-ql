@@ -1,0 +1,5 @@
+{
+  "_comment": "Auteurs des Thought Leader Ads. authors = personId -> nom ; creatives = creativeId -> {authorName, adText, imagePath}. Rempli automatiquement par fetch-data, complétable à la main.",
+  "authors": {},
+  "creatives": {}
+}

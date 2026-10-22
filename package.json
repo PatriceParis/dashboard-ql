@@ -1,0 +1,33 @@
+{
+  "name": "dashboard-ql",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "vercel-build": "npm run fetch-data; npm run build",
+    "start": "next start",
+    "auth": "npx tsx scripts/auth/get-token.ts",
+    "refresh-token": "npx tsx scripts/auth/refresh-token.ts",
+    "fetch-data": "npx tsx scripts/fetch-linkedin-data.ts",
+    "update": "npm run fetch-data && npm run build"
+  },
+  "dependencies": {
+    "@tailwindcss/postcss": "^4.2.1",
+    "@types/node": "^25.4.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "clsx": "^2.1.1",
+    "dotenv": "^17.3.1",
+    "lucide-react": "^0.577.0",
+    "next": "^16.1.6",
+    "postcss": "^8.5.8",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "recharts": "^3.8.0",
+    "tailwind-merge": "^3.5.0",
+    "tailwindcss": "^4.2.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #f5f6fa;
+  --color-foreground: #151a33;
+  --color-card: #ffffff;
+  --color-muted: #eef0f6;
+  --color-muted-foreground: #5f6783;
+  --color-border: #e2e5ef;
+  --color-primary: #4f4bd9;
+  --color-primary-foreground: #ffffff;
+  --color-primary-soft: #eceafc;
+  --color-navy: #222a4d;
+  --color-positive: #2f9e5b;
+  --color-positive-soft: #e6f5ec;
+  --color-negative: #d64545;
+  --color-negative-soft: #fbe9e9;
+  --color-warning: #e46a12;
+  --color-warning-soft: #fdeee2;
+  --color-info-soft: #e7f0fb;
+  --font-sans: var(--font-dm-sans), "Segoe UI", system-ui, sans-serif;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+input[type="date"] {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Infobulle légère : affichée au survol ou au focus clavier */
+.tip {
+  position: relative;
+}
+.tip > .tip-body {
+  position: absolute;
+  z-index: 30;
+  left: 50%;
+  top: calc(100% + 6px);
+  transform: translateX(-50%);
+  width: 240px;
+  background: var(--color-navy);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 8px 10px;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(21, 26, 51, 0.18);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+  font-weight: 400;
+  text-align: left;
+  white-space: normal;
+}
+.tip:hover > .tip-body,
+.tip:focus-within > .tip-body {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+}

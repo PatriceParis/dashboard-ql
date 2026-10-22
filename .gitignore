@@ -1,0 +1,11 @@
+node_modules/
+.next/
+out/
+.env
+.env.local
+data/
+public/creatives/
+public/org/
+*.tsbuildinfo
+next-env.d.ts
+.vercel
