@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import { DM_Sans } from "next/font/google";
 import "./globals.css";
-import { AppFrame } from "@/components/layout/app-frame";
-import { loadAccountOrg, loadMeta, loadSummary } from "@/lib/data-loader";
 import { SITE_TITLE } from "@/lib/constants";
 
 const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm-sans", display: "swap" });
@@ -14,16 +12,9 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const meta = loadMeta();
-  const accountOrg = loadAccountOrg();
-  const summary = loadSummary();
   return (
     <html lang="en-GB" className={dmSans.variable}>
-      <body className="min-h-screen">
-        <AppFrame meta={meta} accountOrg={accountOrg} summary={summary}>
-          {children}
-        </AppFrame>
-      </body>
+      <body className="min-h-screen">{children}</body>
     </html>
   );
 }
