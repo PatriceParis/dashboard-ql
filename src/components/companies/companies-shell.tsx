@@ -71,11 +71,14 @@ export function CompaniesShell({ companies, demographics, campaigns, campaignGro
     [orgs, companies.windows]
   );
 
+  // Les cartes comptent toujours toutes les sociétés du compte sur la fenêtre,
+  // quel que soit le filtre de campagne (demande de Patrice du 22/10).
+  const allCompanies = companies.windows[window];
   const segmentCounts = useMemo(() => {
     const counts: Partial<Record<SegmentKey, number>> = {};
-    for (const s of SEGMENTS) counts[s.key] = s.available ? base.filter((c) => matchesSegment(s.key, c, ctx)).length : 0;
+    for (const s of SEGMENTS) counts[s.key] = s.available ? allCompanies.filter((c) => matchesSegment(s.key, c, ctx)).length : 0;
     return counts;
-  }, [base, ctx]);
+  }, [allCompanies, ctx]);
 
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -83,6 +86,7 @@ export function CompaniesShell({ companies, demographics, campaigns, campaignGro
   }, [base, segment, ctx, search, orgs]);
 
   const windowLabel = COMPANY_WINDOWS.find((w) => w.key === effectiveWindow)?.label.toLowerCase() || "";
+  const cardsWindowLabel = COMPANY_WINDOWS.find((w) => w.key === window)?.label.toLowerCase() || "";
 
   const exportCsv = () => {
     const header = ["Company", "Website", "LinkedIn", "Company size", "Type", "Country", "Impressions", "Clicks", "Engagements", "Leads", "Website clicks", "Level"];
@@ -132,7 +136,7 @@ export function CompaniesShell({ companies, demographics, campaigns, campaignGro
   return (
     <div className="space-y-5">
       {top && (
-        <Card className="border-primary/30">
+        <Card className="border-primary/25 bg-gradient-to-r from-primary-soft to-[#f4f3fd]">
           <div className="px-5 py-4 flex flex-wrap items-start gap-x-6 gap-y-3">
             <div className="min-w-0 flex-1">
               <p className="text-xs font-medium uppercase tracking-wide text-primary">Focus · ABX ad set with the most highly engaged companies, {COMPANY_WINDOWS.find((w) => w.key === focusWindow)?.label.toLowerCase()}</p>
@@ -196,6 +200,9 @@ export function CompaniesShell({ companies, demographics, campaigns, campaignGro
         {campaignFiltered && <p className="px-5 pb-3 text-xs text-muted-foreground">Figures for the selection only. LinkedIn hides very low volumes in the per-campaign breakdown, so a campaign total can be lower than the all-campaigns view.</p>}
       </Card>
 
+      <p className="text-xs text-muted-foreground -mb-2">
+        Segments count every company reached by the account&apos;s ads over the {cardsWindowLabel}, whatever the campaign filter.
+      </p>
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2">
         {SEGMENTS.filter((s) => s.available).map((s) => {
           const active = segment === s.key;

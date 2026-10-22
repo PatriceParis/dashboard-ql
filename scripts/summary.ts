@@ -70,7 +70,7 @@ export function rulesSummary(f: ReturnType<typeof buildFacts>, currency: string)
   const period = f.firstDelivery && f.lastDelivery ? ` between ${fmtDate(f.firstDelivery)} and ${fmtDate(f.lastDelivery)}` : "";
   const reachPart = f.reach > 0 ? `, reaching ${fmtInt(f.reach)} members${f.penetration > 0 ? ` (${f.penetration.toFixed(1)}% of the targeted audience)` : ""}` : "";
   const first = `Over the last 90 days the ABX campaigns spent ${fmtMoney(f.spend, currency)} for ${fmtInt(f.impressions)} impressions${reachPart}${period}, with a ${f.ctr.toFixed(2)}% click-through rate, ${ctrNote}.`;
-  const companiesPart = `${fmtInt(f.companiesReached)} companies saw the ads and ${fmtInt(f.highlyEngaged)} ${f.highlyEngaged === 1 ? "is" : "are"} highly engaged${f.topAdSet ? `, led by the ad set "${f.topAdSet.name}" (${f.topAdSet.highly} highly engaged ${f.topAdSet.highly === 1 ? "company" : "companies"})` : ""}.`;
+  const companiesPart = `${fmtInt(f.companiesReached)} companies saw the account's ads and ${fmtInt(f.highlyEngaged)} ${f.highlyEngaged === 1 ? "is" : "are"} highly engaged${f.topAdSet ? `; the ABX ad set "${f.topAdSet.name}" brought the most (${f.topAdSet.highly})` : ""}.`;
   const leadsPart = f.leads > 0 ? ` ${fmtInt(f.leads)} ${f.leads === 1 ? "lead was" : "leads were"} collected.` : " No lead was collected: the campaigns ran for awareness and engagement only.";
   return `${first} ${companiesPart}${leadsPart}`;
 }
