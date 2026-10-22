@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Download, Search } from "lucide-react";
+import { ArrowRight, Download, Info, Search, Trophy } from "lucide-react";
 import type { Campaign, CampaignGroup, CampaignWindow, CompaniesData, CompanyMetrics, CompanyWindow, DemographicsData } from "@/lib/types";
 import { COMPANY_WINDOWS } from "@/lib/constants";
 import { SEGMENTS, matchesSegment, type SegmentContext, type SegmentKey, companyLevel, isHighlyEngaged } from "@/lib/segments";
@@ -136,99 +136,122 @@ export function CompaniesShell({ companies, demographics, campaigns, campaignGro
   return (
     <div className="space-y-5">
       {top && (
-        <Card className="border-primary/25 bg-gradient-to-r from-primary-soft to-[#f4f3fd]">
-          <div className="px-5 py-4 flex flex-wrap items-start gap-x-6 gap-y-3">
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium uppercase tracking-wide text-primary">Focus · ABX ad set with the most highly engaged companies, {COMPANY_WINDOWS.find((w) => w.key === focusWindow)?.label.toLowerCase()}</p>
-              <p className="text-lg font-semibold mt-1 truncate">{top.campaign!.name}</p>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                {top.campaign!.campaignGroupName ? `${top.campaign!.campaignGroupName} · ` : ""}
-                <span className="text-foreground font-medium tnum">{formatNumber(top.highly)}</span> highly engaged {plural(top.highly, "company", "companies")}, {formatNumber(top.engaged)} engaged, {formatNumber(top.reached)} reached
-                {top.highly === 0 && " (no ad set produced a highly engaged company on this window)"}
+        <Card className="border-primary/25 bg-gradient-to-br from-primary-soft via-[#f3f2fd] to-card overflow-hidden">
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px]">
+            <div className="px-5 py-5 min-w-0">
+              <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-primary">
+                <Trophy className="w-3.5 h-3.5" /> Best ABX ad set · {COMPANY_WINDOWS.find((w) => w.key === focusWindow)?.label.toLowerCase()}
               </p>
-              <button onClick={() => { setCampaignFilter(top.id); setSegment("highly"); }} className="mt-2 text-sm font-medium text-primary hover:underline">
-                Show these companies
+              <p className="text-xl font-semibold mt-2 truncate">{top.campaign!.name}</p>
+              {top.campaign!.campaignGroupName && <p className="text-sm text-muted-foreground mt-0.5 truncate">Campaign: {top.campaign!.campaignGroupName}</p>}
+              <div className="grid grid-cols-3 gap-2 mt-4 max-w-[460px]">
+                <FocusStat value={top.highly} label="highly engaged" strong />
+                <FocusStat value={top.engaged} label="engaged" />
+                <FocusStat value={top.reached} label="companies reached" />
+              </div>
+              {top.highly === 0 && <p className="text-xs text-muted-foreground mt-2">No ad set produced a highly engaged company over this period.</p>}
+              <button
+                onClick={() => {
+                  setCampaignFilter(top.id);
+                  setSegment("highly");
+                }}
+                className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                Show these companies <ArrowRight className="w-4 h-4" />
               </button>
             </div>
             {focus.length > 1 && (
-              <ol className="text-sm text-muted-foreground space-y-1 min-w-[260px]">
-                {focus.slice(1, 4).map((r, i) => (
-                  <li key={r.id} className="flex items-baseline justify-between gap-3">
-                    <span className="truncate">
-                      <span className="tnum mr-1.5">{i + 2}.</span>
-                      {r.campaign!.name}
-                    </span>
-                    <span className="tnum shrink-0">{r.highly} high · {r.engaged} engaged</span>
-                  </li>
-                ))}
-              </ol>
+              <div className="border-t lg:border-t-0 lg:border-l border-primary/15 bg-card/60 px-5 py-5">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Next ad sets</p>
+                <table className="w-full text-sm mt-2">
+                  <thead>
+                    <tr className="text-xs text-muted-foreground">
+                      <th className="text-left font-normal pb-1">Ad set</th>
+                      <th className="text-right font-normal pb-1">High</th>
+                      <th className="text-right font-normal pb-1 pl-3">Engaged</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {focus.slice(1, 5).map((r, i) => (
+                      <tr key={r.id} className="border-t border-border/60">
+                        <td className="py-1.5 pr-2 max-w-[190px] truncate">
+                          <span className="text-muted-foreground tnum mr-1.5">{i + 2}</span>
+                          {r.campaign!.name}
+                        </td>
+                        <td className="py-1.5 text-right tnum font-medium">{r.highly}</td>
+                        <td className="py-1.5 text-right tnum pl-3 text-muted-foreground">{r.engaged}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         </Card>
       )}
+
       <Card>
-        <div className="px-5 py-4 flex flex-wrap items-center gap-x-5 gap-y-3">
-          <div className="text-base font-semibold tnum">
-            {formatNumber(base.length)} {plural(base.length, "company", "companies")}
-            <span className="text-sm font-normal text-muted-foreground ml-2">reached by the account's ads, {windowLabel}</span>
+        <div className="px-5 pt-5 pb-4 flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Companies reached by ads</p>
+            <p className="mt-1 flex items-baseline gap-2">
+              <span className="text-3xl font-semibold tnum">{formatNumber(base.length)}</span>
+              <span className="text-sm text-muted-foreground">{windowLabel}{campaignFiltered ? ", selected campaign" : ", whole ad account"}</span>
+            </p>
           </div>
-          <div className="ml-auto flex flex-wrap items-center gap-x-5 gap-y-3">
-            <Segmented value={window} onChange={(w) => setWindow(w)} options={COMPANY_WINDOWS.map((w) => ({ key: w.key, label: w.label }))} />
-            <label className="text-sm text-muted-foreground inline-flex items-center gap-2">
-              Campaign
-              <select id="companies-campaign" value={campaignFilter} onChange={(e) => setCampaignFilter(e.target.value)} className="bg-card border border-border rounded-md px-2 py-1.5 text-sm text-foreground max-w-[320px]">
-                <option value="all">All campaigns (whole ad account)</option>
-                {campaignOptions.map((g) => (
-                  <optgroup key={g.gid} label={g.name}>
-                    {g.items.length > 1 && <option value={`group:${g.gid}`}>Whole campaign "{g.name}"</option>}
-                    {g.items.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-            </label>
+          <div className="flex flex-wrap items-center gap-3">
+            <Segmented value={window} onChange={(w) => setWindow(w)} options={COMPANY_WINDOWS.map((w) => ({ key: w.key, label: w.label.replace("Last ", "") }))} />
+            <select id="companies-campaign" value={campaignFilter} onChange={(e) => setCampaignFilter(e.target.value)} aria-label="Campaign" className="bg-card border border-border rounded-md px-2.5 py-2 text-sm text-foreground max-w-[280px]">
+              <option value="all">All campaigns</option>
+              {campaignOptions.map((g) => (
+                <optgroup key={g.gid} label={g.name}>
+                  {g.items.length > 1 && <option value={`group:${g.gid}`}>Whole campaign "{g.name}"</option>}
+                  {g.items.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <input id="companies-search" type="search" placeholder="Search company" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8 pr-3 py-1.5 rounded-md border border-border bg-card text-sm w-52 focus:outline-none focus:ring-2 focus:ring-primary/20" />
+              <input id="companies-search" type="search" placeholder="Search company" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8 pr-3 py-2 rounded-md border border-border bg-card text-sm w-48 focus:outline-none focus:ring-2 focus:ring-primary/20" />
             </div>
           </div>
         </div>
-        <p className="px-5 pb-3 -mt-1 text-sm text-muted-foreground max-w-[920px]">
-          Only companies reached by paid ads are listed. LinkedIn&apos;s Companies report in Campaign Manager shows many more because it also counts organic activity (Page visits and post impressions), which LinkedIn does not provide company by company through its API.
-        </p>
-        {campaignFiltered && window === "7d" && <p className="px-5 pb-3 text-xs text-warning">The per-campaign breakdown exists for 30 and 90 days: showing 30 days.</p>}
-        {campaignFiltered && <p className="px-5 pb-3 text-xs text-muted-foreground">Figures for the selection only. LinkedIn hides very low volumes in the per-campaign breakdown, so a campaign total can be lower than the all-campaigns view.</p>}
-      </Card>
 
-      <div className="flex flex-col gap-2">
-      <p className="text-xs text-muted-foreground">
-        Segments count every company reached by the account&apos;s ads over the {cardsWindowLabel}, whatever the campaign filter.
-      </p>
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2">
-        {SEGMENTS.filter((s) => s.available).map((s) => {
-          const active = segment === s.key;
-          return (
-            <button
-              key={s.key}
-              onClick={() => setSegment(active ? null : s.key)}
-              className={cn("text-left rounded-lg border px-3 py-2.5 transition-colors hover:border-primary/40", active ? "border-primary bg-primary-soft" : "border-border bg-card")}
-              aria-pressed={active}
-            >
-              <div className="flex items-center gap-1 text-sm font-medium leading-tight">
-                <span className="truncate">{s.label}</span>
-                <InfoTip text={s.rule} />
-              </div>
-              <div className={cn("text-sm tnum mt-1", active ? "text-primary" : "text-muted-foreground")}>
-                {formatNumber(segmentCounts[s.key] || 0)} {plural(segmentCounts[s.key] || 0, "company", "companies")}
-              </div>
-            </button>
-          );
-        })}
-      </div>
-      </div>
+        <div className="px-5 pb-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2">
+            {SEGMENTS.filter((s) => s.available).map((s) => {
+              const active = segment === s.key;
+              const n = segmentCounts[s.key] || 0;
+              return (
+                <button
+                  key={s.key}
+                  onClick={() => setSegment(active ? null : s.key)}
+                  className={cn("text-left rounded-lg border px-3.5 py-3 transition-colors", active ? "border-primary bg-primary-soft" : "border-border bg-muted/40 hover:border-primary/40 hover:bg-card")}
+                  aria-pressed={active}
+                >
+                  <span className={cn("block text-2xl font-semibold tnum leading-none", active ? "text-primary" : "text-foreground")}>{formatNumber(n)}</span>
+                  <span className="mt-1.5 flex items-center gap-1 text-sm text-muted-foreground leading-tight">
+                    <span className="truncate">{s.label}</span>
+                    <InfoTip text={s.rule} />
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="mt-3 flex items-start gap-1.5 text-xs text-muted-foreground max-w-[960px]">
+            <Info className="w-3.5 h-3.5 shrink-0 mt-px" />
+            <span>
+              Segments cover every company reached by the account&apos;s ads over the {cardsWindowLabel}, whatever the campaign filter. Only paid reach is counted: LinkedIn&apos;s Companies report in Campaign Manager shows more companies because it adds organic activity (Page visits, post impressions), which its API does not provide company by company.
+            </span>
+          </p>
+          {campaignFiltered && window === "7d" && <p className="mt-2 text-xs text-warning">The per-campaign breakdown exists for 30 and 90 days: showing 30 days.</p>}
+          {campaignFiltered && <p className="mt-2 text-xs text-muted-foreground">Table figures are for the selected campaign. LinkedIn hides very low volumes in the per-campaign breakdown.</p>}
+        </div>
+      </Card>
 
       <Card>
         <CardHeader
@@ -269,6 +292,15 @@ export function CompaniesShell({ companies, demographics, campaigns, campaignGro
           </div>
         </div>
       </Card>
+    </div>
+  );
+}
+
+function FocusStat({ value, label, strong = false }: { value: number; label: string; strong?: boolean }) {
+  return (
+    <div className={cn("rounded-md px-3 py-2", strong ? "bg-primary text-primary-foreground" : "bg-card border border-border")}>
+      <span className="block text-xl font-semibold tnum leading-none">{formatNumber(value)}</span>
+      <span className={cn("block text-xs mt-1", strong ? "text-primary-foreground/80" : "text-muted-foreground")}>{label}</span>
     </div>
   );
 }

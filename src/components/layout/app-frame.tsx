@@ -80,18 +80,13 @@ export function AppFrame({ meta, accountOrg, summary, children }: { meta: Meta; 
         </div>
       )}
       <main className="max-w-[1360px] mx-auto px-4 sm:px-6 py-6">{children}</main>
-      <footer className="max-w-[1360px] mx-auto px-4 sm:px-6 pb-8 pt-2 text-xs text-muted-foreground">
-        {SITE_TITLE}. Source: LinkedIn Marketing API{meta.apiVersion ? ` (version ${meta.apiVersion})` : ""}, data up to the previous day. Flow Ops.
-        {meta.errors?.length > 0 && (
-          <details className="mt-2">
-            <summary className="cursor-pointer">Technical notes from the last data refresh ({meta.errors.length})</summary>
-            <ul className="list-disc ml-5 mt-1 space-y-0.5 break-all">
-              {meta.errors.map((e, i) => (
-                <li key={i}>{e}</li>
-              ))}
-            </ul>
-          </details>
-        )}
+      <footer className="max-w-[1360px] mx-auto px-4 sm:px-6 pb-8 pt-2 text-xs text-muted-foreground flex flex-wrap items-center justify-between gap-2">
+        <span>
+          {SITE_TITLE}. Source: LinkedIn Marketing API{meta.apiVersion ? ` (version ${meta.apiVersion})` : ""}, data up to the previous day.
+        </span>
+        <a href="https://flow-ops.pro/" target="_blank" rel="noopener noreferrer" className="font-bold text-foreground hover:text-primary">
+          Powered by Flow Ops
+        </a>
       </footer>
     </PeriodProvider>
   );
