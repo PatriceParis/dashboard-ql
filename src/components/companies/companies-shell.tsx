@@ -153,19 +153,14 @@ export function CompaniesShell({ companies, demographics, campaigns, campaignGro
         {campaignFiltered && <p className="px-5 pb-3 text-xs text-muted-foreground">Figures for the selection only. LinkedIn hides very low volumes in the per-campaign breakdown, so a campaign total can be lower than the all-campaigns view.</p>}
       </Card>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2">
-        {SEGMENTS.map((s) => {
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2">
+        {SEGMENTS.filter((s) => s.available).map((s) => {
           const active = segment === s.key;
           return (
             <button
               key={s.key}
-              onClick={() => s.available && setSegment(active ? null : s.key)}
-              disabled={!s.available}
-              className={cn(
-                "text-left rounded-lg border px-3 py-2.5 transition-colors",
-                active ? "border-primary bg-primary-soft" : "border-border bg-card",
-                s.available ? "hover:border-primary/40" : "opacity-60 cursor-not-allowed"
-              )}
+              onClick={() => setSegment(active ? null : s.key)}
+              className={cn("text-left rounded-lg border px-3 py-2.5 transition-colors hover:border-primary/40", active ? "border-primary bg-primary-soft" : "border-border bg-card")}
               aria-pressed={active}
             >
               <div className="flex items-center gap-1 text-sm font-medium leading-tight">
@@ -173,7 +168,7 @@ export function CompaniesShell({ companies, demographics, campaigns, campaignGro
                 <InfoTip text={s.rule} />
               </div>
               <div className={cn("text-sm tnum mt-1", active ? "text-primary" : "text-muted-foreground")}>
-                {s.available ? `${formatNumber(segmentCounts[s.key] || 0)} ${plural(segmentCounts[s.key] || 0, "company", "companies")}` : "not available via API"}
+                {formatNumber(segmentCounts[s.key] || 0)} {plural(segmentCounts[s.key] || 0, "company", "companies")}
               </div>
             </button>
           );
