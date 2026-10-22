@@ -196,6 +196,9 @@ export function CompaniesShell({ companies, demographics, campaigns, campaignGro
             </div>
           </div>
         </div>
+        <p className="px-5 pb-3 -mt-1 text-sm text-muted-foreground max-w-[920px]">
+          Only companies reached by paid ads are listed. LinkedIn&apos;s Companies report in Campaign Manager shows many more because it also counts organic activity (Page visits and post impressions), which LinkedIn does not provide company by company through its API.
+        </p>
         {campaignFiltered && window === "7d" && <p className="px-5 pb-3 text-xs text-warning">The per-campaign breakdown exists for 30 and 90 days: showing 30 days.</p>}
         {campaignFiltered && <p className="px-5 pb-3 text-xs text-muted-foreground">Figures for the selection only. LinkedIn hides very low volumes in the per-campaign breakdown, so a campaign total can be lower than the all-campaigns view.</p>}
       </Card>
@@ -239,7 +242,7 @@ export function CompaniesShell({ companies, demographics, campaigns, campaignGro
           {rows.length === 0 ? <EmptyState title="No companies" text="Change the segment, the period or the campaign." /> : <CompanyTable rows={rows} organizations={orgs} />}
         </div>
         <p className="px-5 pb-4 text-xs text-muted-foreground">
-          Source: paid impressions by company across the whole ad account (LinkedIn Marketing API); the campaign filter covers the ABX campaigns. LinkedIn's Companies hub also counts organic Page activity and website visits, and hides companies below a privacy threshold, so its totals differ.
+          Source: paid impressions by company across the whole ad account (LinkedIn Marketing API); the campaign filter covers the ABX campaigns. LinkedIn hides companies below a privacy threshold.
         </p>
       </Card>
 

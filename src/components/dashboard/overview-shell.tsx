@@ -74,7 +74,7 @@ export function OverviewShell({ data, summary }: { data: DashboardData; summary:
           <SummaryCard
             href="/entreprises"
             icon={<Building2 className="w-4 h-4" />}
-            title="Companies reached"
+            title="Companies reached by ads"
             caption={companyCaption}
             value={formatNumber(companies.length)}
             detail={`${formatNumber(companies.filter(isHighlyEngaged).length)} highly engaged`}

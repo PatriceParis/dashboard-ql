@@ -3,7 +3,7 @@ export const SITE_TITLE = "Quarkslab LinkedIn reporting";
 export const NAV_ITEMS = [
   { href: "/", label: "Overview" },
   { href: "/publicites", label: "Ads" },
-  { href: "/entreprises", label: "Companies" },
+  { href: "/entreprises", label: "Companies reached by ads" },
   { href: "/page-linkedin", label: "LinkedIn Page" },
 ] as const;
 
