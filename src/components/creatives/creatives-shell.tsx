@@ -9,7 +9,7 @@ import { CreativeCard } from "./creative-card";
 import { Card, CardHeader, EmptyState, Segmented } from "@/components/ui/primitives";
 import { cn } from "@/lib/utils";
 
-type SortKey = "ctr" | "impressions" | "engagements" | "leads";
+type SortKey = "ctr" | "impressions" | "engagements" | "leads" | "videoViews";
 type Scope = "period" | "all";
 type StatusFilter = "active" | "all";
 
@@ -98,6 +98,7 @@ export function CreativesShell({ data }: { data: DashboardData }) {
               <option value="ctr">Click-through rate</option>
               <option value="engagements">Engagements</option>
               <option value="leads">Leads</option>
+              <option value="videoViews">Video views</option>
             </select>
           </label>
           <span className="text-xs text-muted-foreground ml-auto">Per-ad statistics over the last 90 days</span>

@@ -11,6 +11,8 @@ export function CreativeCard({ creative, accountOrg, campaignName }: { creative:
   const hasVideo = creative.mediaType === "video" && !!creative.videoUrl;
   const hasImage = !!creative.localMediaPath;
   const ctr = creative.impressions ? ((creative.clicks || 0) / creative.impressions) * 100 : null;
+  // A video ad is judged on views, not on clicks.
+  const isVideoAd = creative.mediaType === "video";
   const sector = sectorOf(campaignName);
 
   return (
@@ -82,7 +84,9 @@ export function CreativeCard({ creative, accountOrg, campaignName }: { creative:
         <Badge className="bg-muted text-muted-foreground">{MEDIA_LABELS[creative.mediaType]}</Badge>
         {ctr !== null && creative.impressions ? (
           <>
-            <Badge className="bg-positive text-white">{formatPercent(ctr)} CTR</Badge>
+            <Badge className="bg-positive text-white">
+              {isVideoAd ? `${formatNumber(creative.videoViews || 0)} views` : `${formatPercent(ctr)} CTR`}
+            </Badge>
             <span className="text-muted-foreground tnum">{formatNumber(creative.impressions)} impressions</span>
             {creative.leads ? <span className="text-muted-foreground tnum">· {creative.leads} lead{creative.leads > 1 ? "s" : ""}</span> : null}
             <span className="text-muted-foreground">· 90 days</span>

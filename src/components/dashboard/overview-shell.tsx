@@ -47,7 +47,8 @@ export function OverviewShell({ data, summary }: { data: DashboardData; summary:
 
   // Best-performing ads over 90 days (creative-level statistics), 1,000 impressions minimum.
   const topCreatives = useMemo(() => {
-    const eligible = data.creatives.filter((c) => (c.impressions || 0) >= 1000);
+    // Click ranking: video ads are judged on views, so they are left out.
+    const eligible = data.creatives.filter((c) => (c.impressions || 0) >= 1000 && c.mediaType !== "video");
     return eligible.sort((a, b) => (b.clicks || 0) / (b.impressions || 1) - (a.clicks || 0) / (a.impressions || 1)).slice(0, 3);
   }, [data.creatives]);
 
