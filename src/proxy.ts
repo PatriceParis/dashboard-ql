@@ -19,5 +19,5 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   // Exclus : la page et l'API de connexion, les fichiers techniques de Next.js, le logo.
-  matcher: ["/((?!login|api/login|_next/static|_next/image|favicon.ico|quarkslab-logo.svg|robots.txt).*)"],
+  matcher: ["/((?!login|api/login|_next/static|_next/image|favicon.ico|icon.svg|quarkslab-logo.svg|robots.txt).*)"],
 };
