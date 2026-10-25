@@ -1,0 +1,51 @@
+# Rafraîchissement quotidien des données : déclenche un déploiement Vercel de production à 6 h 30, heure de Paris.
+# Le build Vercel lance `npm run vercel-build` (fetch-data puis build) : chaque déploiement relit les données LinkedIn.
+#
+# GitHub ne planifie qu'en UTC : deux crons couvrent l'hiver (5 h 30 UTC) et l'été (4 h 30 UTC), et la première étape
+# ne laisse passer que celui qui correspond au décalage horaire de Paris du jour, même si GitHub le lance en retard.
+# Prérequis : secret du dépôt VERCEL_DEPLOY_HOOK = URL du Deploy Hook créé dans Vercel (Settings > Git > Deploy Hooks, branche main).
+name: Rafraichissement quotidien
+
+on:
+  schedule:
+    - cron: "30 4 * * *"
+    - cron: "30 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+
+jobs:
+  deployer:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Heure de Paris
+        id: heure
+        env:
+          CRON: ${{ github.event.schedule }}
+        run: |
+          echo "Heure de Paris : $(TZ=Europe/Paris date '+%Y-%m-%d %H:%M %z')"
+          # +0100 (hiver) : 6 h 30 à Paris = 5 h 30 UTC ; +0200 (été) : 6 h 30 à Paris = 4 h 30 UTC.
+          if [ "$(TZ=Europe/Paris date +%z)" = "+0100" ]; then attendu="30 5 * * *"; else attendu="30 4 * * *"; fi
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "$CRON" = "$attendu" ]; then
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "go=false" >> "$GITHUB_OUTPUT"
+            echo "Le cron $CRON ne correspond pas à 6 h 30 à Paris en cette saison : rien à faire."
+          fi
+
+      - name: Déploiement Vercel
+        if: steps.heure.outputs.go == 'true'
+        env:
+          HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then echo "::error::secret VERCEL_DEPLOY_HOOK absent"; exit 1; fi
+          curl -fsS -X POST "$HOOK"
+
+      # GitHub coupe les tâches planifiées d'un dépôt public resté 60 jours sans activité : réactiver la tâche
+      # chaque jour la garde en marche, sans aucun commit.
+      - name: Garder la planification active
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/rafraichissement-quotidien.yml/enable"

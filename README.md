@@ -27,6 +27,8 @@ Vercel (plan Hobby, repo public). Variables à déclarer dans le projet Vercel :
 
 Le jeton d'accès expire au bout de deux mois : `npm run refresh-token`, puis reporter `LINKEDIN_ACCESS_TOKEN` dans Vercel et redéployer.
 
+Les données se rafraîchissent chaque jour à 6 h 30, heure de Paris : la tâche GitHub Actions `.github/workflows/rafraichissement-quotidien.yml` appelle un Deploy Hook Vercel (secret du dépôt `VERCEL_DEPLOY_HOOK`), et le déploiement relance `fetch-data`. Lancement manuel : onglet Actions, « Rafraichissement quotidien », Run workflow.
+
 ## Thought Leader Ads
 
 Les posts sponsorisés publiés depuis un profil personnel ne sont pas toujours lisibles par l'API. Le pipeline les retrouve via la liste des posts de l'auteur ; ce qu'il apprend est enregistré dans `tla-authors.json` (à committer). À défaut, déposer le visuel dans `public/tla/<creativeId>.jpg` ou compléter `tla-authors.json`.
